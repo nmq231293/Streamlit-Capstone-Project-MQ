@@ -54,7 +54,7 @@ with col4:
             st.session_state.login_noti = False
             st.session_state.acc_num = ''
             st.session_state.receiver_num = ''
-            st.session_state.transfer_amount = 0     
+            st.session_state.transfer_amount = 0
             st.session_state.dem_sai_mk = 0
             st.session_state.transfer_state = 0
             st.session_state.previous_page.append(st.session_state.current_page)

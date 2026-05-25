@@ -1,6 +1,6 @@
 # Secure data:
 # bank_account.csv
-# test/
+test/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
