@@ -11,8 +11,6 @@ st.session_state.current_page = 'pages/transfer_rehearsal.py'
 if st.session_state.transfer_state == 0:
     st.switch_page('pages/re_submit.py')
 elif st.session_state.transfer_state == 1:
-    if 'dem_sai_mk' not in st.session_state:
-        st.session_state.dem_sai_mk = 0
     transfer_rehearsal()
 else:
     st.session_state.receiver_num = ''

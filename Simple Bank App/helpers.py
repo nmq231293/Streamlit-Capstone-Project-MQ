@@ -80,7 +80,7 @@ def login_check(stk:str, mat_khau:str):
         return 0
 
 def login_form():
-    with st.form('form_dang_nhap', clear_on_submit=True):
+    with st.form('form_dang_nhap', clear_on_submit=False):
         stk = st.text_input('Số tài khoản', value='', max_chars=8, placeholder='Nhập số tài khoản của quý khách')        
         mat_khau = st.text_input('Mật khẩu', type='password', max_chars=24, placeholder='Nhập mật khẩu đăng nhập')
         if st.form_submit_button('Đăng nhập'):
@@ -93,7 +93,8 @@ def login_form():
                     case 0:
                         st.error('Không tìm thấy tài khoản')
                     case 1:
-                        st.error('Sai mật khẩu')
+                        st.session_state.dem_sai_mk += 1
+                        st.error(f'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{3-st.session_state.dem_sai_mk}]** lần nữa')
                     case 2:
                         st.session_state.previous_page.append(st.session_state.current_page)
                         st.session_state.login_state = True
@@ -101,6 +102,9 @@ def login_form():
                         st.session_state.acc_name = df.loc[df['ID'] == stk, 'Name'].iloc[0]
                         st.session_state.acc_num = stk
                         st.switch_page('pages/login_success.py')
+    if st.session_state.dem_sai_mk > 2:
+        st.session_state.dem_sai_mk = 0
+        st.switch_page('pages/password_wrong.py')
 
 def available_balance(stk:str):
     return df[df['ID'] == stk]['Balance'].iloc[0]
@@ -165,23 +169,23 @@ def doc_so_tien(n):
         ket_qua = ""
         if tram == 0 and chuc == 0 and don_vi_le == 0:
             return ""
-            
-        ket_qua += f" {chu_so[tram]} trăm"
+        else:    
+            ket_qua += f" {chu_so[tram]} trăm"
 
             
         if chuc > 1:
             ket_qua += f" {chu_so[chuc]} mươi"
         elif chuc == 1:
             ket_qua += " mười"
-        elif tram > 0 and (chuc == 0 and don_vi_le > 0):
+        elif tram > 0 and chuc == 0 and don_vi_le > 0:
             ket_qua += " lẻ"
             
         if chuc > 0 and don_vi_le == 5:
             ket_qua += " lăm"
-        elif don_vi_le > 0 or (chuc == 0 and tram > 0):
+        elif (tram > 0 and chuc == 0) or don_vi_le > 0:
             if don_vi_le == 1 and chuc > 1:
                 ket_qua += " mốt"
-            else:
+            elif don_vi_le > 0:
                 ket_qua += f" {chu_so[don_vi_le]}"
                 
         return ket_qua.strip()
@@ -204,13 +208,13 @@ def doc_so_tien(n):
     return chuoi_tien.capitalize() + " đồng"
 
 def transfer_rehearsal():
-    with st.form('form_kiem_tra_ck'):
-        st.write(f'Số tiền chuyển khoản: {format(st.session_state.transfer_amount, ',')} VNĐ')
-        st.write(f'Số tiền bằng chữ: {doc_so_tien(st.session_state.transfer_amount)}')
-        st.write(f'Người gửi: {list(df.loc[df['ID'] == st.session_state.acc_num, 'Name']).pop()}')
-        st.write(f'Số tài khoản: {st.session_state.acc_num}')
-        st.write(f'Người nhận: {list(df.loc[df['ID'] == st.session_state.receiver_num, 'Name']).pop()}')
-        st.write(f'Số tài khoản: {st.session_state.receiver_num}')
+    with st.form('form_kiem_tra_ck', clear_on_submit=True):
+        st.write(f'Số tiền chuyển khoản: **:green[{format(st.session_state.transfer_amount, ',')} VNĐ]**')
+        st.write(f'Số tiền bằng chữ: **:green[{doc_so_tien(st.session_state.transfer_amount)}]**')
+        st.write(f'Người gửi: **:green[{list(df.loc[df['ID'] == st.session_state.acc_num, 'Name']).pop()}]**')
+        st.write(f'Số tài khoản: **:green[{st.session_state.acc_num}]**')
+        st.write(f'Người nhận: **:green[{list(df.loc[df['ID'] == st.session_state.receiver_num, 'Name']).pop()}]**')
+        st.write(f'Số tài khoản: **:green[{st.session_state.receiver_num}]**')
         mat_khau = st.text_input('Mật khẩu', type='password', max_chars=24, placeholder='Nhập lại mật khẩu để xác nhận chuyển khoản')
         if st.form_submit_button('Xác nhận chuyển tiền'):
             if mat_khau == '':
@@ -219,7 +223,7 @@ def transfer_rehearsal():
                 match login_check(st.session_state.acc_num, mat_khau):
                     case 1:
                         st.session_state.dem_sai_mk += 1
-                        st.error(f'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau {3-st.session_state.dem_sai_mk} lần nữa')
+                        st.error(f'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{3-st.session_state.dem_sai_mk}]** lần nữa')
                     case 2:
                         money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
                         st.session_state.receiver_num = ''

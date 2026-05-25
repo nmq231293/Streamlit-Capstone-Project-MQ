@@ -22,6 +22,8 @@ pg = st.navigation([home, signup, signup_success, login, login_success, transfer
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
                     re_submit, password_wrong], position='hidden')
 
+if 'dem_sai_mk' not in st.session_state:
+    st.session_state.dem_sai_mk = 0
 if 'login_state' not in st.session_state:
     st.session_state.login_state = False
 if 'login_noti' not in st.session_state:
@@ -46,7 +48,9 @@ with col1:
 
 with col4:
     if st.button('Trang chủ', icon='🏡'):
-        st.session_state.previous_page.append(st.session_state.current_page)
+        if st.session_state.previous_page != []:
+            if st.session_state.previous_page[-1] != 'pages/home.py':
+                st.session_state.previous_page.append(st.session_state.current_page)
         st.switch_page('pages/home.py')
     if st.session_state.login_state:
         if st.button('Đăng xuất', icon='🔑'):
