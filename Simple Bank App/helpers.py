@@ -70,9 +70,9 @@ def signup_form():
             else:
                 st.error('Vui lòng kiểm tra và nhập lại')
                 
-def login_check(stk, mat_khau):
+def login_check(stk:str, mat_khau:str):
     if stk in list(df['ID']):
-        if mat_khau == df.loc[df['ID'] == stk, 'Password'][0]:
+        if mat_khau == df.loc[df['ID'] == stk, 'Password'].iloc[0]:
             return 2
         else:
             return 1
@@ -98,16 +98,16 @@ def login_form():
                         st.session_state.previous_page.append(st.session_state.current_page)
                         st.session_state.login_state = True
                         st.session_state.login_noti = True
-                        st.session_state.acc_name = df.loc[df['ID'] == stk, 'Name'][0]
+                        st.session_state.acc_name = df.loc[df['ID'] == stk, 'Name'].iloc[0]
                         st.session_state.acc_num = stk
                         st.switch_page('pages/login_success.py')
 
-def available_balance(stk):
-    return list(df[df['ID'] == stk]['Balance']).pop()
+def available_balance(stk:str):
+    return df[df['ID'] == stk]['Balance'].iloc[0]
 
 def transfer_check(stk:str, tien_ck:int):
     if stk in list(df['ID']):
-        if list(tien_ck <= df.loc[df['ID'] == stk, 'Balance']).pop():
+        if tien_ck <= df.loc[df['ID'] == stk, 'Balance'].iloc[0]:
             return 2
         else:
             return 1
