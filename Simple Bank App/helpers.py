@@ -48,13 +48,13 @@ def signup_form():
                 st.error('Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số')
                 form_check = False
             elif sdt in list(df['Phone']):
-                st.error('Số điện thoại đã được đăng ký, vui lòng chọn số khác')
+                st.error('Số điện thoại đã được đăng ký cho tài khoản khác')
                 form_check = False
             if not validate_email(email):
                 st.error('Email sai cú pháp')
                 form_check = False
             elif email.upper() in list(df['Email'].str.upper()):
-                st.error('Email này đã được đăng ký, vui lòng chọn email khác')
+                st.error('Email đã được đăng ký cho tài khoản khác')
                 form_check = False
             if mat_khau == '':
                 st.error('Mật khẩu không được để trống')
