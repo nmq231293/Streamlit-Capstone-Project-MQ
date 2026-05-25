@@ -47,13 +47,13 @@ def signup_form():
             if not validate_phone(sdt):
                 st.error('Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số')
                 form_check = False
-            elif  sdt in df['Phone']:
+            elif sdt in list(df['Phone']):
                 st.error('Số điện thoại đã được đăng ký, vui lòng chọn số khác')
                 form_check = False
             if not validate_email(email):
                 st.error('Email sai cú pháp')
                 form_check = False
-            elif email in df['Email']:
+            elif email.upper() in list(df['Email'].str.upper()):
                 st.error('Email này đã được đăng ký, vui lòng chọn email khác')
                 form_check = False
             if mat_khau == '':
@@ -66,7 +66,7 @@ def signup_form():
                 st.session_state.previous_page.append(st.session_state.current_page)
                 signup(df, ten, ngay_sinh, email, sdt, mat_khau, sodu)
                 st.session_state.acc_num = f'{(len(df)+1):08}'
-                st.switch_page('pages/login_success.py')
+                st.switch_page('pages/signup_success.py')
             else:
                 st.error('Vui lòng kiểm tra và nhập lại')
                 
