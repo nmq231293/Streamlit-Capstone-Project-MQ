@@ -1,12 +1,8 @@
 import streamlit as st
+import time 
 
-st.header('TRANG KHÔNG KHẢ DỤNG, VUI LÒNG KIỂM TRA LẠI', width='stretch',text_alignment='center')
+st.header('**:red[TRANG KHÔNG KHẢ DỤNG, QUÝ KHÁCH SẼ QUAY VỀ TRANG CHỦ SAU 5 GIÂY]**', width='stretch',text_alignment='center')
 
-col1, col2, col3 = st.columns(3)
-with col2:
-    if st.button('Quay lại trang trước', icon='🔙'):
-        backward = st.session_state.previous_page.pop(-1)
-        st.switch_page(backward)
-    if st.button('Quay về trang chủ', icon='🏡'):
-        st.session_state.transfer_state == 0
-        st.switch_page('pages/home.py')
+with st.spinner('Đang điều hướng về trang chủ ...'):
+    time.sleep(5)
+    st.switch_page('pages/home.py')

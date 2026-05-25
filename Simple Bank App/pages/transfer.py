@@ -4,7 +4,7 @@ from helpers import money_transfer_form, available_balance
 if st.session_state.login_state == False:
     st.switch_page('pages/home.py')
 
-st.header('CHUYỂN KHOẢN', width='stretch',text_alignment='left')
+st.header('**:red[CHUYỂN KHOẢN]**', width='stretch',text_alignment='left')
 st.session_state.current_page = 'pages/transfer.py'
 
 if st.session_state.login_state == True:
