@@ -37,10 +37,7 @@ def calculate_age(birth_date):
 
 def signup(ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
-    try:
-        new_index = f'{(len(df)+1):08}'
-    except:
-        new_index = '00000001'
+    new_index = f'{(len(df)+1):08}'
     df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, int(sodu)]
     # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
     df.to_csv(account_file)
