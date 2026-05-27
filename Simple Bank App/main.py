@@ -52,10 +52,9 @@ with col1:
 
 with col4:
     if st.button('Trang chủ', icon='🏡'):
-        if st.session_state.previous_page != []:
-            if st.session_state.previous_page[-1] != 'pages/home.py':
-                st.session_state.previous_page.append(st.session_state.current_page)
-        st.switch_page('pages/home.py')
+        if st.session_state.current_page != 'pages/home.py':
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.switch_page('pages/home.py')
     if st.session_state.login_state:
         if st.button('Đăng xuất', icon='🔑'):
             st.session_state.login_state = False
@@ -65,6 +64,7 @@ with col4:
             st.session_state.transfer_amount = 0
             st.session_state.dem_sai_mk = 0
             st.session_state.transfer_state = 0
+            st.session_state.signup_state = False
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/home.py')
 
