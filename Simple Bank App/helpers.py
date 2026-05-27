@@ -17,17 +17,18 @@ def calculate_age(birth_date):
     age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     return age
 
-df = pd.read_csv('Simple Bank App/bank_account.csv', dtype={'ID':str,'Phone':str}) #, index_col='ID')
+df = pd.read_csv('Simple Bank App/bank_account.csv', dtype={'ID':str,'Phone':str}, index_col='ID')
 
-def signup(ten, ngay_sinh, email, sdt, matkhau, sodu):
+def signup(ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
-    new_acc = pd.DataFrame({'ID':[f'{(len(df)+1):08}'], 'Name':[ten], 'DoB':[ngay_sinh], 'Phone':[sdt], 'Email':[email], 'Password':[matkhau], 'Balance':[sodu]})
-    df = pd.concat([df,new_acc], ignore_index=True)
-    df.to_csv('Simple Bank App/bank_account.csv', index=False)
+    new_index = f'{(len(df)+1):08}'
+    df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, sodu]
+    # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
+    df.to_csv('Simple Bank App/bank_account.csv')
 
 
 def signup_form():
-    with st.form('form_dang_ky',clear_on_submit=False):
+    with st.form('form_dang_ky', clear_on_submit=False):
         ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
         ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today())
         sdt = st.text_input('Nhập SĐT của bạn')
@@ -65,7 +66,7 @@ def signup_form():
                 form_check = False
             if form_check:
                 st.session_state.previous_page.append(st.session_state.current_page)
-                signup(ten, ngay_sinh, email, sdt, mat_khau, sodu)
+                signup(ten, ngay_sinh, sdt, email, mat_khau, sodu)
                 st.session_state.acc_num = f'{(len(df)):08}'
                 st.session_state.signup_state = True
                 st.switch_page('pages/signup_success.py')
@@ -73,8 +74,8 @@ def signup_form():
                 st.error('Vui lòng kiểm tra và nhập lại')
                 
 def login_check(stk:str, mat_khau:str):
-    if stk in list(df['ID']):
-        if mat_khau == df.loc[df['ID'] == stk, 'Password'].iloc[0]:
+    if stk in df.index:
+        if mat_khau == df.loc[stk, 'Password']:
             return 2
         else:
             return 1
@@ -101,7 +102,7 @@ def login_form():
                         st.session_state.previous_page.append(st.session_state.current_page)
                         st.session_state.login_state = True
                         st.session_state.login_noti = True
-                        st.session_state.acc_name = df.loc[df['ID'] == stk, 'Name'].iloc[0]
+                        st.session_state.acc_name = df.loc[stk, 'Name']
                         st.session_state.acc_num = stk
                         st.switch_page('pages/login_success.py')
     if st.session_state.dem_sai_mk > 2:
@@ -109,11 +110,11 @@ def login_form():
         st.switch_page('pages/password_wrong.py')
 
 def available_balance(stk:str):
-    return df[df['ID'] == stk]['Balance'].iloc[0]
+    return df.loc[stk, 'Balance']
 
 def transfer_check(stk:str, tien_ck:int):
-    if stk in list(df['ID']):
-        if tien_ck <= df.loc[df['ID'] == stk, 'Balance'].iloc[0]:
+    if stk in df.index:
+        if tien_ck <= df.loc[stk, 'Balance']:
             return 2
         else:
             return 1
@@ -121,8 +122,9 @@ def transfer_check(stk:str, tien_ck:int):
         return 0    
 
 def money_transfer(sender:str, receiver:str, transfer_amount:int):
-    df.loc[df['ID'] == sender, 'Balance'] -= transfer_amount
-    df.loc[df['ID'] == receiver, 'Balance'] += transfer_amount
+    global df
+    df.loc[sender, 'Balance'] -= transfer_amount
+    df.loc[receiver, 'Balance'] += transfer_amount
     df.to_csv('bank_account.csv', index=False)
 
 def money_transfer_form():
@@ -213,9 +215,9 @@ def transfer_rehearsal():
     with st.form('form_kiem_tra_ck', clear_on_submit=True):
         st.write(f'Số tiền chuyển khoản: **:green[{format(st.session_state.transfer_amount, ',')} VNĐ]**')
         st.write(f'Số tiền bằng chữ: **:green[{doc_so_tien(st.session_state.transfer_amount)}]**')
-        st.write(f'Người gửi: **:green[{list(df.loc[df['ID'] == st.session_state.acc_num, 'Name']).pop()}]**')
+        st.write(f'Người gửi: **:green[{df.loc[st.session_state.acc_num, 'Name']}]**')
         st.write(f'Số tài khoản: **:green[{st.session_state.acc_num}]**')
-        st.write(f'Người nhận: **:green[{list(df.loc[df['ID'] == st.session_state.receiver_num, 'Name']).pop()}]**')
+        st.write(f'Người nhận: **:green[{df.loc[st.session_state.receiver_num, 'Name']}]**')
         st.write(f'Số tài khoản: **:green[{st.session_state.receiver_num}]**')
         mat_khau = st.text_input('Mật khẩu', type='password', max_chars=24, placeholder='Nhập lại mật khẩu để xác nhận chuyển khoản')
         if st.form_submit_button('Xác nhận chuyển tiền'):
