@@ -1,8 +1,25 @@
 import streamlit as st 
 import pandas as pd
+import os
 import re
 from datetime import date, datetime
 
+account_file = 'Simple Bank App/bank_account.csv'
+
+if os.path.exists(account_file):
+    df = pd.read_csv(account_file, dtype={'ID':str,'Phone':str,'Balance':int}, index_col='ID')
+else:
+    df = pd.DataFrame(columns= ['ID', 'Name', 'DoB', 'Phone', 'Email', 'Password', 'Balance'])
+    df = df.astype({
+        'ID':'string',
+        'Name':'string',
+        'DoB':'string',
+        'Phone':'string',
+        'Email':'string',
+        'Password':'string',
+        'Balance':'int64'
+        })
+    df.set_index('ID', inplace=True)
 
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -17,14 +34,13 @@ def calculate_age(birth_date):
     age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     return age
 
-df = pd.read_csv('Simple Bank App/bank_account.csv', dtype={'ID':str,'Phone':str}, index_col='ID')
 
 def signup(ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
     new_index = f'{(len(df)+1):08}'
     df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, sodu]
     # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
-    df.to_csv('Simple Bank App/bank_account.csv')
+    df.to_csv(account_file)
 
 
 def signup_form():
