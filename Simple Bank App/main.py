@@ -43,6 +43,18 @@ if 'receiver_num' not in st.session_state:
 if 'transfer_amount' not in st.session_state:
     st.session_state.transfer_amount = 0
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stWidgetLabel"] p {
+        font-weight: bold;
+        color: #ffaf53 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.session_state.previous_page != []:

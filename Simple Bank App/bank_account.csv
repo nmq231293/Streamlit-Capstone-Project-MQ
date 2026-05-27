@@ -1,3 +1,4 @@
-"ID",Name,DoB,Phone,Email,Password,Balance
-00000001,Nguyễn Minh Quân,1993-12-23,0348296564,thesmartkingQ@gmail.com,aBc123@,20000000000
-00000002,Phạm Hoàng Ngọc Tuyền,1995-12-17,0902690193,phamhoangngoctuyen171295@gmail.com,aBc123@,1000000000
+ID,Name,DoB,Phone,Email,Password,Balance
+00000001,Nguyễn Minh Quân,1993-12-23,0348296564,minhquan@gmail.com,aBc123@,20000000000
+00000002,Phạm Hoàng Ngọc Tuyền,1995-12-17,0902690193,ngoctuyen@gmail.com,abc1234@,10000000000
+00100002,Nguyễn Văn A,1992-05-27,0123456789,csfvsdfgv@yahoo.com,abc1234@,2000000000

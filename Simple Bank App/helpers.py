@@ -4,6 +4,17 @@ import os
 import re
 from datetime import date, datetime
 
+st.markdown(
+    """
+    <style>
+    [data-testid="stWidgetLabel"] p {
+        color: #FF5733 !important; /* Màu cam đỏ */
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 account_file = 'Simple Bank App/bank_account.csv'
 
 if os.path.exists(account_file):
@@ -34,11 +45,47 @@ def calculate_age(birth_date):
     age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     return age
 
-
-def signup(ten, ngay_sinh, sdt, email, matkhau, sodu):
+def new_id_check(id):
     global df
-    new_index = f'{(len(df)+1):08}'
-    df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, sodu]
+    if id not in df.index:
+        return id
+    else:
+        for i in range(1, 100000000):
+            if f'{i:08}' not in df.index:
+                return f'{i:08}'
+                break
+            
+def new_id_suggest(id):
+    global df
+    id = str(id)
+    kq = []
+    match len(id):
+        case 8:
+            return kq
+        case 7:
+            for i in [id + '6', id + '8', id + '9']:
+                if '6' in f'{i:08}'.replace(str(id), '') or '8' in f'{i:08}'.replace(str(id), '') or '9' in f'{i:08}'.replace(str(id), ''):
+                    kq.append(f'{i:08}')
+        case _:            
+            for i in range(id,100000000):
+                if str(id) in f'{i:08}':
+                    kt = True
+                    for j in [0,1,2,3,4,5,7]:
+                        if str(j) in f'{i:08}'.replace(str(id), ''):
+                            kt = False
+                            break
+                    if kt:
+                        for k in [66,68,86,88,96,98]:
+                            if str(k) in f'{i:08}'.replace(str(id), ''):
+                                kq.append(f'{i:08}')
+                if len(kq) > 4:
+                    return kq
+                    break
+
+            
+def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
+    global df
+    df.loc[stk] = [ten, str(ngay_sinh), sdt, email, matkhau, sodu]
     # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
     df.to_csv(account_file)
 
@@ -51,6 +98,12 @@ def signup_form():
         email = st.text_input('Nhập email của bạn: ')
         mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
         sodu = st.number_input('Nhập số tiền khi tạo tài khoản', value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder='Không được để trống', format= '%d')
+        stk_mac_dinh = new_id_check('00000001')
+        st.markdown('')
+        st.markdown('**:violet[PHẦN TỰ CHỌN]**')
+        stk = st.text_input('Điền số tài khoản gồm 8 chữ số mà quý khách mong muốn, bỏ trống nếu quý khách muốn để số tài khoản mặc định từ hệ thống'
+                            ,placeholder=stk_mac_dinh, max_chars=8)
+        
         if st.form_submit_button('Đăng ký'):
             form_check = True
             if ten == '':
@@ -80,14 +133,26 @@ def signup_form():
             elif len(mat_khau) < 8:
                 st.error('Mật khẩu phải chứa từ 8-24 ký tự')
                 form_check = False
+            if stk == '':
+                stk = stk_mac_dinh
+            elif not stk.isdigit():
+                st.error('Số tài khoản không được chứa chữ cái')
+                form_check = False
+            else:
+                stk = f'{int(stk):08}'
+            if stk != new_id_check(stk):
+                st.error('Số tài khoản không khả dụng, hãy chọn số khác hoặc bỏ trống')
+                form_check = False
+                stk_khadung = new_id_suggest(int(stk))
             if form_check:
                 st.session_state.previous_page.append(st.session_state.current_page)
-                signup(ten, ngay_sinh, sdt, email, mat_khau, sodu)
-                st.session_state.acc_num = f'{(len(df)):08}'
+                signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
+                st.session_state.acc_num = stk
                 st.session_state.signup_state = True
                 st.switch_page('pages/signup_success.py')
             else:
                 st.error('Vui lòng kiểm tra và nhập lại')
+                st.write(stk_khadung)
                 
 def login_check(stk:str, mat_khau:str):
     if stk in df.index:

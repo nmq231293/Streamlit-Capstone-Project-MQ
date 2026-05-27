@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from helpers import signup_form
 
+
 if st.session_state.login_state == True:
     st.switch_page('pages/home.py')
 st.header('**:red[ĐĂNG KÝ]**', width='stretch',text_alignment='left')
