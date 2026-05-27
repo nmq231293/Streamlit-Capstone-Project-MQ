@@ -19,7 +19,7 @@ else:
         'Password':'string',
         'Balance':'int64'
         })
-    df.set_index('ID')
+    df.set_index('ID', inplace=True)
 
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -37,12 +37,9 @@ def calculate_age(birth_date):
 
 def signup(ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
-    try:
-        new_index = f'{(len(df)+1):08}'
-    except:
-        new_index = '00000001'
-    # df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, int(sodu)]
-    df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
+    new_index = f'{(len(df)+1):08}'
+    df.loc[new_index] = [ten, ngay_sinh, sdt, email, matkhau, sodu]
+    # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
     df.to_csv(account_file)
 
 
