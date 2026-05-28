@@ -42,6 +42,8 @@ if 'receiver_num' not in st.session_state:
     st.session_state.receiver_num = ''
 if 'transfer_amount' not in st.session_state:
     st.session_state.transfer_amount = 0
+if 'available_id_list' not in st.session_state:
+    st.session_state.available_id_list = []
 
 st.markdown(
     """

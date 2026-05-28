@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 import re
+import random
 from datetime import date, datetime
 
 st.markdown(
@@ -32,6 +33,8 @@ else:
         })
     df.set_index('ID', inplace=True)
 
+df.sort_index(inplace=True)
+
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email))
@@ -54,40 +57,63 @@ def new_id_check(id):
             if f'{i:08}' not in df.index:
                 return f'{i:08}'
                 break
-            
-def new_id_suggest(id):
-    global df
-    id = str(id)
-    kq = []
-    match len(id):
-        case 8:
-            return kq
-        case 7:
-            for i in [id + '6', id + '8', id + '9']:
-                if '6' in f'{i:08}'.replace(str(id), '') or '8' in f'{i:08}'.replace(str(id), '') or '9' in f'{i:08}'.replace(str(id), ''):
-                    kq.append(f'{i:08}')
-        case _:            
-            for i in range(id,100000000):
-                if str(id) in f'{i:08}':
-                    kt = True
-                    for j in [0,1,2,3,4,5,7]:
-                        if str(j) in f'{i:08}'.replace(str(id), ''):
-                            kt = False
-                            break
-                    if kt:
-                        for k in [66,68,86,88,96,98]:
-                            if str(k) in f'{i:08}'.replace(str(id), ''):
-                                kq.append(f'{i:08}')
-                if len(kq) > 4:
-                    return kq
-                    break
+                        
+def id_available_check(num):
+    return True if num not in df.index else False
 
+def id_num_generate(init_num, choices=['6', '8', '9']):
+    i_str = str(init_num)
+    init_len = len(i_str)
+    spaces_count = 8 - init_len
+    
+
+    def filler_generate(length):
+        if length == 0:
+            return [[]]
+        sub_combos = filler_generate(length - 1)
+        return [combo + [digit] for combo in sub_combos for digit in choices]
+
+
+    filler_list = filler_generate(spaces_count)
+    
+    kq = set()
+
+    for filler in filler_list:
+        for i in range(spaces_count + 1):
+
+            temp = filler.copy()
+
+            temp.insert(i, i_str)
+
+            whole_num = "".join(temp)
+            kq.add(whole_num)
+            
+    return sorted(list(kq))
+
+def new_id_suggest(init_id, rs_num):
+    good_id = id_num_generate(init_id)
+    available_good_id = list(filter(id_available_check, good_id))
+    
+    if len(available_good_id) <= rs_num:
+        return available_good_id
+    
+    random_good_id = []
+    while len(random_good_id) < rs_num:
+        chosen_random_id = random.choice(available_good_id)
+        random_good_id.append(chosen_random_id)
+        available_good_id.remove(chosen_random_id)
+        
+    random_good_id.sort()
+    
+    return random_good_id
             
 def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
     df.loc[stk] = [ten, str(ngay_sinh), sdt, email, matkhau, sodu]
     # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
+    df.sort_index(inplace=True)
     df.to_csv(account_file)
+
 
 
 def signup_form():
@@ -101,9 +127,15 @@ def signup_form():
         stk_mac_dinh = new_id_check('00000001')
         st.markdown('')
         st.markdown('**:violet[PHẦN TỰ CHỌN]**')
-        stk = st.text_input('Điền số tài khoản gồm 8 chữ số mà quý khách mong muốn, bỏ trống nếu quý khách muốn để số tài khoản mặc định từ hệ thống'
-                            ,placeholder=stk_mac_dinh, max_chars=8)
-        
+        if st.session_state.available_id_list == []:
+            stk = st.text_input('Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
+                                ,placeholder=stk_mac_dinh, max_chars=8
+                                )
+        else:
+            stk = st.selectbox('Chọn một số tài khoản hoặc bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
+                                , [''] + st.session_state.available_id_list, accept_new_options=True, placeholder=stk_mac_dinh
+                                )
+            st.info('Quý khách hãy chọn một số tài khoản trong danh sách gợi ý')
         if st.form_submit_button('Đăng ký'):
             form_check = True
             if ten == '':
@@ -138,21 +170,29 @@ def signup_form():
             elif not stk.isdigit():
                 st.error('Số tài khoản không được chứa chữ cái')
                 form_check = False
-            else:
-                stk = f'{int(stk):08}'
-            if stk != new_id_check(stk):
-                st.error('Số tài khoản không khả dụng, hãy chọn số khác hoặc bỏ trống')
+            elif len(stk) > 8:
+                st.error('Số tài khoản không được quá 8 chữ số')
                 form_check = False
-                stk_khadung = new_id_suggest(int(stk))
+            else:
+                stkc = f'{int(stk):08}'
+            if not id_available_check(stkc) or len(stk) < 8:
+                st.session_state.available_id_list = new_id_suggest(int(stk),10)
+                if st.session_state.available_id_list == []:
+                    st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
+                else:
+                    if form_check == True:
+                        form_check = False
+                        st.rerun()
+                form_check = False
             if form_check:
                 st.session_state.previous_page.append(st.session_state.current_page)
                 signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
+                st.session_state.available_id_list = []
                 st.session_state.acc_num = stk
                 st.session_state.signup_state = True
                 st.switch_page('pages/signup_success.py')
             else:
                 st.error('Vui lòng kiểm tra và nhập lại')
-                st.write(stk_khadung)
                 
 def login_check(stk:str, mat_khau:str):
     if stk in df.index:

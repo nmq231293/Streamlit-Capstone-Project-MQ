@@ -1,0 +1,7 @@
+streamlit
+pandas
+os
+re
+random
+datetime
+streamlit-smart-text-input
