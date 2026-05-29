@@ -4,6 +4,8 @@ from helpers import available_balance
 st.header('**:red[TRANG CHỦ]**', width='stretch',text_alignment='left')
 st.session_state.current_page = 'pages/home.py'
 
+st.session_state.available_id_list = []
+
 if not st.session_state.login_state:
     col1, col2 = st.columns(2)
     with col1:

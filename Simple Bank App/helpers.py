@@ -109,8 +109,7 @@ def new_id_suggest(init_id, rs_num):
             
 def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
-    df.loc[stk] = [ten, str(ngay_sinh), sdt, email, matkhau, sodu]
-    # df.loc[new_index] = {'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu}
+    df.loc[stk] = pd.Series({'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu})
     df.sort_index(inplace=True)
     df.to_csv(account_file)
 
@@ -119,7 +118,7 @@ def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
 def signup_form():
     with st.form('form_dang_ky', clear_on_submit=False):
         ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
-        ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today())
+        ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY')
         sdt = st.text_input('Nhập SĐT của bạn')
         email = st.text_input('Nhập email của bạn: ')
         mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
@@ -132,8 +131,8 @@ def signup_form():
                                 ,placeholder=stk_mac_dinh, max_chars=8
                                 )
         else:
-            stk = st.selectbox('Chọn một số tài khoản hoặc bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
-                                , [''] + st.session_state.available_id_list, accept_new_options=True, placeholder=stk_mac_dinh
+            stk = st.selectbox('Chọn một số tài khoản hoặc chọn mặc định nếu quý khách muốn nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác'
+                                , ['Mặc định', 'Đổi dãy số khác'] + st.session_state.available_id_list, accept_new_options=True, placeholder='Mặc định'
                                 )
             st.info('Quý khách hãy chọn một số tài khoản trong danh sách gợi ý')
         if st.form_submit_button('Đăng ký'):
@@ -165,8 +164,10 @@ def signup_form():
             elif len(mat_khau) < 8:
                 st.error('Mật khẩu phải chứa từ 8-24 ký tự')
                 form_check = False
-            if stk == '':
+            if stk == '' or stk == 'Mặc định':
                 stk = stk_mac_dinh
+            elif stk == 'Đổi dãy số khác':
+                st.session_state.available_id_list = []
             elif not stk.isdigit():
                 st.error('Số tài khoản không được chứa chữ cái')
                 form_check = False
@@ -175,15 +176,17 @@ def signup_form():
                 form_check = False
             else:
                 stkc = f'{int(stk):08}'
-            if not id_available_check(stkc) or len(stk) < 8:
-                st.session_state.available_id_list = new_id_suggest(int(stk),10)
-                if st.session_state.available_id_list == []:
-                    st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
-                else:
-                    if form_check == True:
+            if form_check == True:
+                if stk == 'Đổi dãy số khác':                    
+                    st.rerun()
+                elif not id_available_check(stkc) or len(stk) < 8:
+                    st.session_state.available_id_list = new_id_suggest(int(stk),20)
+                    if st.session_state.available_id_list == []:
+                        st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
                         form_check = False
+                    else:
                         st.rerun()
-                form_check = False
+
             if form_check:
                 st.session_state.previous_page.append(st.session_state.current_page)
                 signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)

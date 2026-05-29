@@ -79,6 +79,7 @@ with col4:
             st.session_state.dem_sai_mk = 0
             st.session_state.transfer_state = 0
             st.session_state.signup_state = False
+            st.session_state.available_id_list = []
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/home.py')
 
