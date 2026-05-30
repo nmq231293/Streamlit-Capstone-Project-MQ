@@ -109,7 +109,14 @@ def new_id_suggest(init_id, rs_num):
             
 def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
-    df.loc[stk] = pd.Series({'Name':ten, 'DoB':ngay_sinh, 'Phone':sdt, 'Email':email, 'Password':matkhau, 'Balance':sodu})
+    df.loc[stk] = pd.Series({
+                            'Name':ten,
+                            'DoB':ngay_sinh,
+                            'Phone':sdt,
+                            'Email':email,
+                            'Password':matkhau,
+                            'Balance':sodu
+                            })
     df.sort_index(inplace=True)
     df.to_csv(account_file)
 
