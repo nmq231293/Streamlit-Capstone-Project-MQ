@@ -1,0 +1,3 @@
+pandas==3.0.3
+streamlit==1.56.0
+streamlit_smart_text_input==1.0.9
