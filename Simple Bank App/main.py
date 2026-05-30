@@ -61,7 +61,7 @@ st.markdown(
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
-    if st.session_state.current_page != []:
+    if st.session_state.previous_page != []:
         if st.button('Quay lại trang trước', icon='🔙'):
             backward = st.session_state.previous_page.pop(-1)
             st.switch_page(backward)
