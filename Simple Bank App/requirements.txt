@@ -4,3 +4,4 @@ os
 re
 random
 datetime
+pip install --upgrade pip
