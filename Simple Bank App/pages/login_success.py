@@ -9,6 +9,6 @@ st.header('**:red[ĐĂNG NHẬP THÀNH CÔNG]**', width='stretch',text_alignment
 
 st.balloons()
 
-with st.spinner('Quý khách sẽ quay về trang chủ sau 5 giây ...'):
-    time.sleep(5)
+with st.spinner('Quý khách sẽ quay về trang chủ sau 3 giây ...'):
+    time.sleep(3)
     st.switch_page('pages/home.py')
