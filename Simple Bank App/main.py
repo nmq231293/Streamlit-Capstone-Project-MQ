@@ -84,4 +84,5 @@ with col4:
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/home.py')
 
+st.write(pg._page)
 pg.run()
