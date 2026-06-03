@@ -22,8 +22,7 @@ col1, col2 = st.columns(2)
 with col1:
     if st.button('Quay lại trang trước', icon='🔙'):
         st.session_state.transfer_state == 0
-        backward = st.session_state.previous_page.pop(-1)
-        st.switch_page(backward)
+        st.switch_page(st.session_state.previous_page.pop(-1))
 with col2:
     if st.button('Quay về trang chủ', icon='🏡'):
         st.session_state.transfer_state == 0

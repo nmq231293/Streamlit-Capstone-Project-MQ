@@ -1,4 +1,5 @@
 import streamlit as st
+from helpers import switch_page_check
 
 st.set_page_config(layout='wide')
 st.title('**:rainbow[NGÂN HÀNG KACHÀPÚ]**', width='stretch', text_alignment='center')
@@ -59,19 +60,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.session_state.current_page = pg._page
 
+st.session_state.current_page = pg._page
+st.write(st.session_state.previous_page)
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.session_state.previous_page != []:
         if st.button('Quay lại trang trước', icon='🔙'):
-            st.switch_page(st.session_state.previous_page.pop(-1))
+            switch_page_check(st.session_state.previous_page.pop(-1), False)
 
 with col4:
     if st.button('Trang chủ', icon='🏡'):
         if st.session_state.current_page != 'pages/home.py':
-            st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/home.py')
+            switch_page_check('pages/home.py')
     if st.session_state.login_state:
         if st.button('Đăng xuất', icon='🔑'):
             st.session_state.login_state = False

@@ -35,6 +35,26 @@ else:
 
 df.sort_index(inplace=True)
 
+@st.dialog('Xác nhận rời trang')
+def switch_page_confirm(page_path, page_trace = True):
+    st.warning('Nếu rời khỏi trang, nội dung bạn đã điền sẽ không được lưu. Bạn có chắc muốn rời khỏi trang này chứ?')
+    if st.button('**:red[Rời khỏi trang này]**'):
+        if page_trace:
+            st.session_state.previous_page.append(st.session_state.current_page)
+        st.switch_page(page_path)
+    if st.button('**:green[Ở lại trang này]**'):
+        st.rerun()
+
+
+def switch_page_check(page_path, page_trace = True):
+    check = True
+    for i in ['login.py','signup.py','transfer.py']:
+        if i in str(st.session_state.current_page):
+            check = False
+            switch_page_confirm(page_path, page_trace)
+    if check:
+        st.switch_page(page_path)
+
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email))
