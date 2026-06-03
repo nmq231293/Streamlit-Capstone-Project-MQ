@@ -5,7 +5,7 @@ if st.session_state.login_state == False:
     st.switch_page('pages/home.py')
 
 st.header('**:red[ĐĂNG NHẬP THÀNH CÔNG]**', width='stretch',text_alignment='center')
-st.session_state.current_page = 'pages/login_success.py'
+# st.session_state.current_page = 'pages/login_success.py'
 
 st.balloons()
 

@@ -59,6 +59,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.session_state.current_page = pg._page
+
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     if st.session_state.previous_page != []:
@@ -84,5 +86,4 @@ with col4:
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/home.py')
 
-st.write(pg._page)
 pg.run()

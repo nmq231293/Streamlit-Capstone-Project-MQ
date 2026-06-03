@@ -2,7 +2,7 @@ import streamlit as st
 from helpers import available_balance
 
 st.header('**:red[TRANG CHỦ]**', width='stretch',text_alignment='left')
-st.session_state.current_page = 'pages/home.py'
+# st.session_state.current_page = 'pages/home.py'
 
 st.session_state.available_id_list = []
 
