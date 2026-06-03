@@ -271,7 +271,7 @@ def money_transfer_form():
         stk = st.text_input('Số tài khoản cần chuyển', value=stkc, max_chars=8, placeholder='Nhập số tài khoản người nhận')        
         tien_ck = st.number_input('Số tiền cần chuyển', value=tien_ckc, max_value=500000000, step=100000, placeholder='Nhập số tiền cần chuyển', format= '%u')
         st.write('Chuyển khoản ít nhất 10.000 đồng và nhiều nhất 500.000.000 đồng trong một lần chuyển')
-        noi_dung = st.text_input('Nội dung', placeholder='Nhập nội dung chuyển khoản')
+        noi_dung = st.text_input('Nội dung', max_chars= 99, placeholder='Nhập nội dung chuyển khoản')
         if st.form_submit_button('Chuyển khoản'):
             if stk == '':
                 st.error('Số tài khoản không được bỏ trống')

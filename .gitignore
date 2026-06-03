@@ -1,4 +1,5 @@
 # Secure data:
+.streamlit/secrets.toml
 # bank_account.csv
 test/
 # Byte-compiled / optimized / DLL files
