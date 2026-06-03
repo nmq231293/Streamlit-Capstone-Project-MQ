@@ -33,6 +33,7 @@ else:
         })
     df.set_index('ID', inplace=True)
 
+pd.to_datetime(df['DoB'])
 df.sort_index(inplace=True)
 
 @st.dialog('Xác nhận rời trang')
@@ -41,9 +42,9 @@ def switch_page_confirm(page_path, page_trace = True):
     if st.button('**:red[Rời khỏi trang này]**'):
         if page_trace:
             st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page(page_path)
         else:
-            st.switch_page(st.session_state.previous_page.pop(-1))
+            st.session_state.previous_page.pop(-1)
+        st.switch_page(page_path)
     if st.button('**:green[Ở lại trang này]**'):
         st.rerun()
 
@@ -55,6 +56,8 @@ def switch_page_check(page_path, page_trace = True):
             check = False
             switch_page_confirm(page_path, page_trace)
     if check:
+        if not page_trace:
+            st.session_state.previous_page.pop(-1)
         st.switch_page(page_path)
 
 def validate_email(email):
@@ -129,7 +132,7 @@ def new_id_suggest(init_id, rs_num):
     
     return random_good_id
             
-def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
+def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
     df.loc[stk] = pd.Series({
                             'Name':ten,
@@ -142,95 +145,97 @@ def signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     df.sort_index(inplace=True)
     df.to_csv(account_file)
 
-
+def process_temp_DoB():
+    st.session_state.pr_temp_DoB = st.session_state.temp_DoB.strftime('%d/%m/%Y').replace('/', '')
 
 def signup_form():
-    with st.form('form_dang_ky', clear_on_submit=False):
-        ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
-        ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY')
-        sdt = st.text_input('Nhập SĐT của bạn')
-        email = st.text_input('Nhập email của bạn: ')
-        mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
-        sodu = st.number_input('Nhập số tiền khi tạo tài khoản', value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder='Không được để trống', format= '%d')
-        stk_mac_dinh = new_id_check('00000001')
-        st.markdown('')
-        st.markdown('**:violet[PHẦN TỰ CHỌN]**')
-        if st.session_state.available_id_list == []:
-            stk = st.text_input('Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
-                                ,placeholder=stk_mac_dinh, max_chars=8
-                                )
-        else:
-            stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn Mặc định để nhận số tài khoản ngẫu nhiên hoặc Đổi dãy số khác'
-                                , st.session_state.available_id_list,
+    ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
+    ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY', key= 'temp_DoB', on_change=process_temp_DoB)
+    sdt = st.text_input('Nhập SĐT của bạn')
+    email = st.text_input('Nhập email của bạn: ')
+    mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
+    sodu = st.number_input('Nhập số tiền khi tạo tài khoản', value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder='Không được để trống', format= '%d')
+    stk_mac_dinh = new_id_check(st.session_state.pr_temp_DoB)
+    st.markdown('')
+    st.markdown('**:violet[PHẦN TỰ CHỌN]**')
+    if st.session_state.available_id_list == []:
+        stk = st.text_input('Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
+                            ,placeholder=stk_mac_dinh, max_chars=8
                             )
-            stk_modify = st.radio('Chọn stk theo', ['Mặc định', 'Đổi dãy số khác'], index=None, label_visibility='hidden')
-            st.info('Quý khách hãy chọn một số tài khoản trong danh sách gợi ý')
-        if st.form_submit_button('Đăng ký'):
-            form_check = True
-            if ten == '':
-                st.error('Tên không được để trống')
-                form_check = False
-            elif ' ' not in ten:
-                st.error('Phải có đủ họ và tên')
-                form_check = False
-            if calculate_age(ngay_sinh) < 16:
-                st.error('Bạn phải trên 16 tuổi mới được tạo tài khoản')
-                form_check = False
-            if not validate_phone(sdt):
-                st.error('Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số')
-                form_check = False
-            elif sdt in list(df['Phone']):
-                st.error('Số điện thoại đã được đăng ký cho tài khoản khác')
-                form_check = False
-            if not validate_email(email):
-                st.error('Email sai cú pháp')
-                form_check = False
-            elif email.upper() in list(df['Email'].str.upper()):
-                st.error('Email đã được đăng ký cho tài khoản khác')
-                form_check = False
-            if mat_khau == '':
-                st.error('Mật khẩu không được để trống')
-                form_check = False
-            elif len(mat_khau) < 8:
-                st.error('Mật khẩu phải chứa từ 8-24 ký tự')
-                form_check = False
-            if st.session_state.available_id_list != [] and stk_modify != None:
-                stk = stk_modify
-            if stk == None:
-                st.error('Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác')
-                form_check = False
-            elif stk == '' or stk == 'Mặc định':
-                stk = stk_mac_dinh
-            elif stk == 'Đổi dãy số khác':
-                st.session_state.available_id_list = []
-            elif not stk.isdigit():
-                st.error('Số tài khoản không được chứa chữ cái')
-                form_check = False
-            elif len(stk) > 8:
-                st.error('Số tài khoản không được quá 8 chữ số')
-                form_check = False
-            else:
-                stkc = f'{int(stk):08}'
-            if form_check == True:
-                if stk == 'Đổi dãy số khác':                    
+        if stk_mac_dinh == st.session_state.pr_temp_DoB:
+            st.info('Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bỏ trống để chọn dãy số này')
+    else:
+        stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn Mặc định để nhận số tài khoản ngẫu nhiên hoặc Đổi dãy số khác'
+                            , st.session_state.available_id_list,
+                        )
+        stk_modify = st.radio('Chọn stk theo', ['Mặc định', 'Đổi dãy số khác'], index=None, label_visibility='hidden')
+        st.info('Quý khách hãy chọn một số tài khoản trong danh sách gợi ý')
+    if st.button('Đăng ký'):
+        form_check = True
+        if ten == '':
+            st.error('Tên không được để trống')
+            form_check = False
+        elif ' ' not in ten:
+            st.error('Phải có đủ họ và tên')
+            form_check = False
+        if calculate_age(ngay_sinh) < 16:
+            st.error('Bạn phải trên 16 tuổi mới được tạo tài khoản')
+            form_check = False
+        if not validate_phone(sdt):
+            st.error('Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số')
+            form_check = False
+        elif sdt in list(df['Phone']):
+            st.error('Số điện thoại đã được đăng ký cho tài khoản khác')
+            form_check = False
+        if not validate_email(email):
+            st.error('Email sai cú pháp')
+            form_check = False
+        elif email.upper() in list(df['Email'].str.upper()):
+            st.error('Email đã được đăng ký cho tài khoản khác')
+            form_check = False
+        if mat_khau == '':
+            st.error('Mật khẩu không được để trống')
+            form_check = False
+        elif len(mat_khau) < 8:
+            st.error('Mật khẩu phải chứa từ 8-24 ký tự')
+            form_check = False
+        if st.session_state.available_id_list != [] and stk_modify != None:
+            stk = stk_modify
+        if stk == None:
+            st.error('Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác')
+            form_check = False
+        elif stk == '' or stk == 'Mặc định':
+            stk = stk_mac_dinh
+        elif stk == 'Đổi dãy số khác':
+            st.session_state.available_id_list = []
+        elif not stk.isdigit():
+            st.error('Số tài khoản không được chứa chữ cái')
+            form_check = False
+        elif len(stk) > 8:
+            st.error('Số tài khoản không được quá 8 chữ số')
+            form_check = False
+        else:
+            stkc = f'{int(stk):08}'
+        if form_check == True:
+            if stk == 'Đổi dãy số khác':           
+                st.rerun()
+            elif not id_available_check(stkc) or len(stk) < 8:
+                st.session_state.available_id_list = new_id_suggest(int(stk),28)
+                if st.session_state.available_id_list == []:
+                    st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
+                    form_check = False
+                else:
                     st.rerun()
-                elif not id_available_check(stkc) or len(stk) < 8:
-                    st.session_state.available_id_list = new_id_suggest(int(stk),28)
-                    if st.session_state.available_id_list == []:
-                        st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
-                        form_check = False
-                    else:
-                        st.rerun()
 
-            if form_check:
-                st.session_state.previous_page.append(st.session_state.current_page)
-                signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
-                st.session_state.available_id_list = []
-                st.session_state.acc_num = stk
-                st.session_state.signup_state = True
-                st.switch_page('pages/signup_success.py')
-            else:
-                st.error('Vui lòng kiểm tra và nhập lại')
+        if form_check:
+            st.session_state.previous_page.append(st.session_state.current_page)
+            account_signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
+            st.session_state.available_id_list = []
+            st.session_state.acc_num = stk
+            st.session_state.signup_state = True
+            st.switch_page('pages/signup_success.py')
+        else:
+            st.error('Vui lòng kiểm tra và nhập lại')
                 
 def login_check(stk:str, mat_khau:str):
     if stk in df.index:

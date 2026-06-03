@@ -31,6 +31,8 @@ if 'acc_name' not in st.session_state:
     st.session_state.acc_name = ''
 if 'signup_state' not in st.session_state:
     st.session_state.signup_state = False
+if 'pr_temp_DoB' not in st.session_state:
+    st.session_state.pr_temp_DoB = '00000001'
 if 'login_state' not in st.session_state:
     st.session_state.login_state = False
 if 'login_noti' not in st.session_state:
