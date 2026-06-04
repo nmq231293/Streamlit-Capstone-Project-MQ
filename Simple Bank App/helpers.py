@@ -6,6 +6,7 @@ import re
 import random
 from datetime import date, datetime
 
+# Tạo màu cho widget label:
 st.markdown(
     """
     <style>
@@ -34,6 +35,7 @@ st.markdown(
 #         })
 #     df.set_index('ID', inplace=True)
 
+# Hàm lấy secrets để đọc file google sheet
 def get_gspread_client():
 
     credentials_dict = dict(st.secrets["connections"]["gsheets"])
@@ -42,6 +44,7 @@ def get_gspread_client():
     return gc
 
 
+# Đọc file vào dataframe
 
 gc = get_gspread_client()
 
@@ -62,12 +65,15 @@ df = df.astype({
                 'Balance' : 'int64'
                 })
 
+# Xử lý dataframe
+
 df['ID'] = pd.Series(f'{x:08}' for x in list(df['ID']))
 df['Phone'] = '0' + df['Phone']
 pd.to_datetime(df['DoB'])
 df.set_index('ID', inplace=True)
 df.sort_index(inplace=True)
 
+# Hộp thoại báo khi rời những trang điền form
 @st.dialog('Xác nhận rời trang')
 def switch_page_confirm(page_path, page_trace = True):
     st.warning('Nếu rời khỏi trang, nội dung bạn đã điền sẽ không được lưu. Bạn có chắc muốn rời khỏi trang này chứ?')
@@ -80,7 +86,7 @@ def switch_page_confirm(page_path, page_trace = True):
     if st.button('**:green[Ở lại trang này]**'):
         st.rerun()
 
-
+# Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
 def switch_page_check(page_path, page_trace = True):
     check = True
     for i in ['login.py','signup.py','transfer.py','transfer_rehearsal.py']:
@@ -92,19 +98,26 @@ def switch_page_check(page_path, page_trace = True):
             st.session_state.previous_page.pop(-1)
         st.switch_page(page_path)
 
+
+# Các hàm xử lý dữ liệu nhập form
+
+# Hàm kiểm tra mail
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
     return bool(re.match(pattern, email))
-    
+
+# Hàm kiểm tra sđt
 def validate_phone(phone):
     pattern = r'^\+?(0|84)\d{9,10}$'
     return bool(re.match(pattern, phone))
 
+# Hàm kiểm tra tuổi
 def calculate_age(birth_date):
     today = datetime.today()
     age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
     return age
 
+# Hàm trả về cùng tham số nếu ID này khả dụng, nếu không sẽ trả một số ID khả dụng nhỏ nhất có thể
 def new_id_check(id):
     global df
     if id not in df.index:
@@ -114,17 +127,21 @@ def new_id_check(id):
             if f'{i:08}' not in df.index:
                 return f'{i:08}'
                 break
-                        
+
+# Nhóm hàm tạo list ID số đẹp
+
+# Hàm kiểm tra ID khả dụng hay không
 def id_available_check(num):
     return True if num not in df.index else False
 
+# Hàm tạo các tổ hợp số đẹp chứa dãy số cho trước
 def id_num_generate(init_num:str, init_choices = [6,8,9]):
     
     init_len = len(init_num)
     spaces_count = 8 - init_len
     choices = [str(x) for x in init_choices]
     
-
+    # Đệ quy khởi tạo bộ số đẹp từ các chữ số trong choices
     def filler_generate(length):
         if length == 0:
             return [[]]
@@ -134,6 +151,7 @@ def id_num_generate(init_num:str, init_choices = [6,8,9]):
 
     filler_list = filler_generate(spaces_count)
     
+    # Nhét dãy số cho trước vào các bộ số đã tạo
     kq = set()
 
     for filler in filler_list:
@@ -146,8 +164,10 @@ def id_num_generate(init_num:str, init_choices = [6,8,9]):
             whole_num = "".join(temp)
             kq.add(whole_num)
             
+    # Dùng set để lọc số trùng, sau đó chuyển lại thành list và sắp xếp lại
     return sorted(list(kq))
 
+# Hàm kiểm tra và trả ra list ID số đẹp từ dãy số cho trước, kết quả là list gồm nhiều nhất suggest_num được lấy ngẫu nhiên từ các ID khả dụng
 def new_id_suggest(init_id:str, suggest_num:int):
     if len(init_id) > 4:
         good_id = id_num_generate(init_id,[0,1,2,3,4,5,6,7,8,9])
@@ -168,6 +188,7 @@ def new_id_suggest(init_id:str, suggest_num:int):
     
     return random_good_id
 
+# Hàm xuất df ra lại google sheet
 def work_sheet_update():
     global df, worksheet
 
@@ -185,7 +206,7 @@ def work_sheet_update():
     pd.to_datetime(df['DoB'])
     df.set_index('ID')
 
-            
+# Hàm tạo tài khoản mới
 def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
     df.loc[stk] = pd.Series({
@@ -200,9 +221,11 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     # df.to_csv(account_file)
     work_sheet_update()
 
+# Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
 def process_temp_DoB():
     st.session_state.pr_temp_DoB = st.session_state.temp_DoB.strftime('%d/%m/%Y').replace('/', '')
 
+# Form đăng ký tài khoản mới
 def signup_form():
     ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
     ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY', key= 'temp_DoB', on_change=process_temp_DoB)
@@ -308,7 +331,8 @@ def signup_form():
             st.switch_page('pages/signup_success.py')
         else:
             st.error('Vui lòng kiểm tra và nhập lại')
-                
+
+# Hàm kiểm tra đăng nhập. KQ trả về 2 là thành công, 1 là sai mật khẩu, 0 là không tồn tại tài khoản
 def login_check(stk:str, mat_khau:str):
     if stk in df.index:
         if mat_khau == df.loc[stk, 'Password']:
@@ -318,6 +342,7 @@ def login_check(stk:str, mat_khau:str):
     else:
         return 0
 
+# Form đăng nhập
 def login_form():
     with st.form('form_dang_nhap', clear_on_submit=False):
         stk = st.text_input('Số tài khoản', value=st.session_state.acc_num, max_chars=8, placeholder='Nhập số tài khoản của quý khách')        
@@ -345,9 +370,11 @@ def login_form():
         st.session_state.dem_sai_mk = 0
         st.switch_page('pages/password_wrong.py')
 
+# Hàm lấy số dư tài khoản
 def available_balance(stk:str):
     return df.loc[stk, 'Balance']
 
+# Hàm kiểm tra chuyển tiền được hay không. KQ trả về 2 là được, 1 là tk ko đủ, 0 là ko tồn tại tài khoản nhận
 def transfer_check(stk:str, tien_ck:int):
     if stk in df.index:
         if tien_ck <= df.loc[stk, 'Balance']:
@@ -357,12 +384,14 @@ def transfer_check(stk:str, tien_ck:int):
     else:
         return 0    
 
+# Hàm chuyển tiền
 def money_transfer(sender:str, receiver:str, transfer_amount:int):
     global df
     df.loc[sender, 'Balance'] -= transfer_amount
     df.loc[receiver, 'Balance'] += transfer_amount
     df.to_csv('bank_account.csv', index=False)
 
+# Form chuyển tiền
 def money_transfer_form():
     stkc = st.session_state.receiver_num
     tien_ckc = st.session_state.transfer_amount
@@ -393,7 +422,7 @@ def money_transfer_form():
                         st.session_state.transfer_state = 1
                         st.switch_page('pages/transfer_rehearsal.py')
 
-
+# Hàm chuyển số tiền từ số thành chữ
 def doc_so_tien(n):
     if n == 0:
         return "Không đồng"
@@ -447,6 +476,7 @@ def doc_so_tien(n):
     
     return chuoi_tien.capitalize() + " đồng"
 
+# Form xác nhận chuyển tiền
 def transfer_rehearsal():
     with st.form('form_kiem_tra_ck', clear_on_submit=True):
         st.write(f'Số tiền chuyển khoản: **:green[{format(st.session_state.transfer_amount, ',')} VNĐ]**')
