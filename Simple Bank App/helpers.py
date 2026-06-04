@@ -1,4 +1,5 @@
 import streamlit as st 
+import gspread
 import pandas as pd
 import os
 import re
@@ -16,24 +17,55 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-account_file = 'Simple Bank App/bank_account.csv'
+# account_file = 'Simple Bank App/bank_account.csv'
 
-if os.path.exists(account_file):
-    df = pd.read_csv(account_file, dtype={'ID':str,'Phone':str,'Balance':int}, index_col='ID')
-else:
-    df = pd.DataFrame(columns= ['ID', 'Name', 'DoB', 'Phone', 'Email', 'Password', 'Balance'])
-    df = df.astype({
-        'ID':'string',
-        'Name':'string',
-        'DoB':'string',
-        'Phone':'string',
-        'Email':'string',
-        'Password':'string',
-        'Balance':'int64'
-        })
-    df.set_index('ID', inplace=True)
+# if os.path.exists(account_file):
+#     df = pd.read_csv(account_file, dtype={'ID':str,'Phone':str,'Balance':int}, index_col='ID')
+# else:
+#     df = pd.DataFrame(columns= ['ID', 'Name', 'DoB', 'Phone', 'Email', 'Password', 'Balance'])
+#     df = df.astype({
+#         'ID':'string',
+#         'Name':'string',
+#         'DoB':'string',
+#         'Phone':'string',
+#         'Email':'string',
+#         'Password':'string',
+#         'Balance':'int64'
+#         })
+#     df.set_index('ID', inplace=True)
 
+def get_gspread_client():
+
+    credentials_dict = dict(st.secrets["connections"]["gsheets"])
+
+    gc = gspread.service_account_from_dict(credentials_dict)
+    return gc
+
+
+
+gc = get_gspread_client()
+
+spreadsheet_url = st.secrets["connections"]["gsheets"]["toplevel_url"]
+sh = gc.open_by_url(spreadsheet_url)
+
+worksheet = sh.worksheet("bank_account")
+
+data = worksheet.get_all_records()
+df = pd.DataFrame(data)
+
+
+df = df.astype({
+                'Name' : 'str',
+                'Phone' : 'str',
+                'Email' : 'str',
+                'Password' : 'str',
+                'Balance' : 'int64'
+                })
+
+df['ID'] = pd.Series(f'{x:08}' for x in list(df['ID']))
+df['Phone'] = '0' + df['Phone']
 pd.to_datetime(df['DoB'])
+df.set_index('ID', inplace=True)
 df.sort_index(inplace=True)
 
 @st.dialog('Xác nhận rời trang')
@@ -135,6 +167,24 @@ def new_id_suggest(init_id:str, suggest_num:int):
     random_good_id.sort()
     
     return random_good_id
+
+def work_sheet_update():
+    global df, worksheet
+
+    worksheet.clear()
+
+    df['DoB'] = df['DoB'].astype(str)
+    df.reset_index(drop=False, inplace=True)
+    
+    header = df.columns.values.tolist()
+    rows = df.values.tolist()
+    data_to_upload = [header] + rows
+
+    worksheet.update(range_name='A1', values=data_to_upload)
+
+    pd.to_datetime(df['DoB'])
+    df.set_index('ID')
+
             
 def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     global df
@@ -147,7 +197,7 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                             'Balance':sodu
                             })
     df.sort_index(inplace=True)
-    df.to_csv(account_file)
+    work_sheet_update()
 
 def process_temp_DoB():
     st.session_state.pr_temp_DoB = st.session_state.temp_DoB.strftime('%d/%m/%Y').replace('/', '')
@@ -185,6 +235,9 @@ def signup_form():
         elif ' ' not in ten:
             st.error('Phải có đủ họ và tên')
             form_check = False
+        elif ten.isdigit():
+            st.error('Tên không được có số')
+            form_check = False            
         if calculate_age(ngay_sinh) < 16:
             st.error('Bạn phải trên 16 tuổi mới được tạo tài khoản')
             form_check = False
@@ -209,7 +262,7 @@ def signup_form():
         if st.session_state.available_id_list != [] and stk_modify != None:
             if 'Xác nhận' in stk_modify:
                 stk = st.session_state.available_id_list[0]
-            else:
+            elif stk == None:
                 stk = stk_modify
         if stk == None:
             st.error('Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác')
