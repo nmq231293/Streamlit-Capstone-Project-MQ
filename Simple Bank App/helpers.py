@@ -209,6 +209,7 @@ def signup_form():
     sdt = st.text_input('Nhập SĐT của bạn')
     email = st.text_input('Nhập email của bạn: ')
     mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
+    xn_mat_khau = st.text_input('Vui lòng xác nhận lại mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
     sodu = st.number_input('Nhập số tiền khi tạo tài khoản', value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder='Không được để trống', format= '%d')
     stk_mac_dinh = new_id_check(st.session_state.pr_temp_DoB)
     st.markdown('')
@@ -260,6 +261,9 @@ def signup_form():
         elif len(mat_khau) < 8:
             st.error('Mật khẩu phải chứa từ 8-24 ký tự')
             form_check = False
+        elif mat_khau != xn_mat_khau:
+            st.error('Xác nhận mật khẩu không trùng khớp')
+            form_check = False            
         if st.session_state.available_id_list != [] and stk_modify != None:
             if 'Xác nhận' in stk_modify:
                 stk = st.session_state.available_id_list[0]
