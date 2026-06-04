@@ -7,6 +7,9 @@ st.header('**:red[TRANG CHỦ]**', width='stretch',text_alignment='left')
 st.session_state.available_id_list = []
 
 if not st.session_state.login_state:
+    if st.session_state.logout_state:
+        st.error('Đã đăng xuất')
+        st.session_state.logout_state = False
     col1, col2 = st.columns(2)
     with col1:
         if st.button('Đăng nhập', icon='🔑'):

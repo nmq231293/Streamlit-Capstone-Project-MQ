@@ -18,10 +18,12 @@ withdraw = st.Page('pages/withdraw.py', title='Rút tiền', icon='💰')
 withdraw_success = st.Page('pages/withdraw_success.py', title='Rút tiền thành công', icon='💰')
 re_submit = st.Page('pages/re_submit.py', title='Không khả dụng', icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title='Sai mật khẩu', icon='❌')
+account_settings = st.Page('pages/account_settings.py', title='Sai mật khẩu', icon='⚙️')
+
 
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
-                    re_submit, password_wrong], position='hidden')
+                    re_submit, password_wrong, account_settings], position='hidden')
 
 if 'dem_sai_mk' not in st.session_state:
     st.session_state.dem_sai_mk = 0
@@ -49,7 +51,10 @@ if 'transfer_amount' not in st.session_state:
     st.session_state.transfer_amount = 0
 if 'available_id_list' not in st.session_state:
     st.session_state.available_id_list = []
-
+if 'logout_state' not in st.session_state:
+    st.session_state.logout_state = False
+    
+    
 st.markdown(
     """
     <style>
@@ -66,26 +71,31 @@ st.session_state.current_page = pg._page
 
 col1, col2, col3, col4 = st.columns(4)
 with col1:
+    if st.button('Trang chủ', icon='🏡'):
+        if st.session_state.current_page != 'pages/home.py':
+            switch_page_check('pages/home.py')
     if st.session_state.previous_page != []:
         if st.button('Quay lại trang trước', icon='🔙'):
             switch_page_check(st.session_state.previous_page[-1], False)
 
 with col4:
-    if st.button('Trang chủ', icon='🏡'):
-        if st.session_state.current_page != 'pages/home.py':
-            switch_page_check('pages/home.py')
     if st.session_state.login_state:
-        if st.button('Đăng xuất', icon='🔑'):
-            st.session_state.login_state = False
-            st.session_state.login_noti = False
-            st.session_state.acc_num = ''
-            st.session_state.receiver_num = ''
-            st.session_state.transfer_amount = 0
-            st.session_state.dem_sai_mk = 0
-            st.session_state.transfer_state = 0
-            st.session_state.signup_state = False
-            st.session_state.available_id_list = []
-            st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/home.py')
+        with st.popover('Cài đặt', icon='⚙️',type='secondary',use_container_width=False,width='content'):
+            if st.button('**:green[Tài khoản]**', icon='🙎🏻‍♂️'):
+                st.switch_page('pages/account_settings.py')
+            if st.button('**:red[Đăng xuất]**', icon='🔑'):
+                st.session_state.login_state = False
+                st.session_state.login_noti = False
+                st.session_state.acc_num = ''
+                st.session_state.receiver_num = ''
+                st.session_state.transfer_amount = 0
+                st.session_state.dem_sai_mk = 0
+                st.session_state.transfer_state = 0
+                st.session_state.signup_state = False
+                st.session_state.available_id_list = []
+                st.session_state.logout_state = True
+                if st.session_state.current_page != 'pages/home.py':
+                    st.session_state.previous_page.append(st.session_state.current_page)
+                st.switch_page('pages/home.py')
 
 pg.run()
