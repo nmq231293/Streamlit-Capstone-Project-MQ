@@ -86,10 +86,11 @@ def new_id_check(id):
 def id_available_check(num):
     return True if num not in df.index else False
 
-def id_num_generate(init_num, choices=['6', '8', '9']):
-    i_str = str(init_num)
-    init_len = len(i_str)
+def id_num_generate(init_num:int, init_choices = [6,8,9]):
+    init_str = str(init_num)
+    init_len = len(init_str)
     spaces_count = 8 - init_len
+    choices = [str(x) for x in init_choices]
     
 
     def filler_generate(length):
@@ -108,22 +109,25 @@ def id_num_generate(init_num, choices=['6', '8', '9']):
 
             temp = filler.copy()
 
-            temp.insert(i, i_str)
+            temp.insert(i, init_str)
 
             whole_num = "".join(temp)
             kq.add(whole_num)
             
     return sorted(list(kq))
 
-def new_id_suggest(init_id, rs_num):
-    good_id = id_num_generate(init_id)
+def new_id_suggest(init_id:int, suggest_num:int):
+    if len(str(init_id)) > 4:
+        good_id = id_num_generate(init_id,[0,1,2,3,4,5,6,7,8,9])
+    else:
+        good_id = id_num_generate(init_id)
     available_good_id = list(filter(id_available_check, good_id))
     
-    if len(available_good_id) <= rs_num:
+    if len(available_good_id) <= suggest_num:
         return available_good_id
     
     random_good_id = []
-    while len(random_good_id) < rs_num:
+    while len(random_good_id) < suggest_num:
         chosen_random_id = random.choice(available_good_id)
         random_good_id.append(chosen_random_id)
         available_good_id.remove(chosen_random_id)
@@ -160,12 +164,15 @@ def signup_form():
     st.markdown('**:violet[PHẦN TỰ CHỌN]**')
     if st.session_state.available_id_list == []:
         stk = st.text_input('Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
-                            ,placeholder=stk_mac_dinh, max_chars=8
+                            ,placeholder=stk_mac_dinh + ' đang khả dụng', max_chars=8
                             )
-        if stk_mac_dinh == st.session_state.pr_temp_DoB:
-            st.info('Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bỏ trống để chọn dãy số này')
+        if stk_mac_dinh == st.session_state.pr_temp_DoB and calculate_age(ngay_sinh) >= 16:
+            st.info('Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bấm đăng ký để chọn dãy số này')
+    elif len(st.session_state.available_id_list) == 1:
+        stk_modify = st.radio('Dãy số quý khách đã chọn khả dụng để làm số tài khoản, quý khách hãy xác nhận dùng dãy số này. Nếu không hãy chọn mặc định để lấy một số ngẫu nhiên hoặc chọn một dãy số khác',
+                    [f'Xác nhận dùng {st.session_state.available_id_list[0]} làm số tài khoản'] + ['Mặc định', 'Đổi dãy số khác'], index=0)        
     else:
-        stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn Mặc định để nhận số tài khoản ngẫu nhiên hoặc Đổi dãy số khác'
+        stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn mặc định để nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác'
                             , st.session_state.available_id_list,
                         )
         stk_modify = st.radio('Chọn stk theo', ['Mặc định', 'Đổi dãy số khác'], index=None, label_visibility='hidden')
@@ -206,6 +213,7 @@ def signup_form():
             form_check = False
         elif stk == '' or stk == 'Mặc định':
             stk = stk_mac_dinh
+            stkc = stk_mac_dinh
         elif stk == 'Đổi dãy số khác':
             st.session_state.available_id_list = []
         elif not stk.isdigit():
@@ -216,16 +224,19 @@ def signup_form():
             form_check = False
         else:
             stkc = f'{int(stk):08}'
-        if form_check == True:
+        if form_check:
             if stk == 'Đổi dãy số khác':           
                 st.rerun()
-            elif not id_available_check(stkc) or len(stk) < 8:
+            if not id_available_check(stkc) or len(stk) < 8:
                 st.session_state.available_id_list = new_id_suggest(int(stk),28)
                 if st.session_state.available_id_list == []:
-                    st.error('Không còn số tài khoản nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
+                    st.error('Không còn số tài khoản khả dụng nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
                     form_check = False
                 else:
                     st.rerun()
+            else:
+                st.session_state.available_id_list = [stk]
+                st.rerun()
 
         if form_check:
             st.session_state.previous_page.append(st.session_state.current_page)
