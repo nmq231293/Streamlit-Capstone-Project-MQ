@@ -170,7 +170,7 @@ def signup_form():
             st.info('Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bấm đăng ký để chọn dãy số này')
     elif len(st.session_state.available_id_list) == 1:
         stk_modify = st.radio('Dãy số quý khách đã chọn khả dụng để làm số tài khoản, quý khách hãy xác nhận dùng dãy số này. Nếu không hãy chọn mặc định để lấy một số ngẫu nhiên hoặc chọn một dãy số khác',
-                    [f'Xác nhận dùng {st.session_state.available_id_list[0]} làm số tài khoản'] + ['Mặc định', 'Đổi dãy số khác'], index=0)        
+                    [f'Xác nhận dùng {st.session_state.available_id_list[0]} làm số tài khoản'] + ['Mặc định', 'Đổi dãy số khác'], index=0)
     else:
         stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn mặc định để nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác'
                             , st.session_state.available_id_list,
@@ -207,7 +207,10 @@ def signup_form():
             st.error('Mật khẩu phải chứa từ 8-24 ký tự')
             form_check = False
         if st.session_state.available_id_list != [] and stk_modify != None:
-            stk = stk_modify
+            if 'Xác nhận' in stk_modify:
+                stk = st.session_state.available_id_list[0]
+            else:
+                stk = stk_modify
         if stk == None:
             st.error('Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác')
             form_check = False
@@ -234,7 +237,7 @@ def signup_form():
                     form_check = False
                 else:
                     st.rerun()
-            else:
+            elif st.session_state.available_id_list == []:
                 st.session_state.available_id_list = [stk]
                 st.rerun()
 
