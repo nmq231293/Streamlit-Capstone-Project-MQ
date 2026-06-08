@@ -21,12 +21,11 @@ withdraw_success = st.Page('pages/withdraw_success.py', title='Rút tiền thàn
 re_submit = st.Page('pages/re_submit.py', title='Không khả dụng', icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title='Sai mật khẩu', icon='❌')
 account_settings = st.Page('pages/account_settings.py', title='Sai mật khẩu', icon='⚙️')
-AI_assistant = st.Page('pages/AI_assistant.py', title='AI hỗ trợ', icon='🤖')
 
 
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
-                    re_submit, password_wrong, account_settings, AI_assistant], position='hidden')
+                    re_submit, password_wrong, account_settings], position='hidden')
 
 if 'dem_sai_mk' not in st.session_state:
     st.session_state.dem_sai_mk = 0
@@ -101,8 +100,5 @@ with col4:
                 if st.session_state.current_page != 'pages/home.py':
                     st.session_state.previous_page.append(st.session_state.current_page)
                 st.switch_page('pages/home.py')
-    if st.button('**:violet[AI hỗ trợ]**', icon='🤖'):
-        st.session_state.previous_page.append(st.session_state.current_page)
-        st.switch_page('pages/AI_assistant.py')        
 
 pg.run()

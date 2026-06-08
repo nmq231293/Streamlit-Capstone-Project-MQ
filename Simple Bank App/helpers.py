@@ -24,9 +24,25 @@ def embed_chatbot():
     # 1. Khởi tạo kịch bản hệ thống cho OpenAI
     system_instruction = {
         "role": "system", 
-        "content": "Bạn là trợ lý ảo hỗ trợ ứng dụng Ngân hàng Kachàpú. Hãy hướng dẫn người dùng đăng ký, đăng nhập, gửi tiền, rút tiền một cách cực kỳ ngắn gọn, lịch sự bằng tiếng Việt."
+        "content": "Bạn là trợ lý ảo hỗ trợ web ứng dụng Ngân hàng Kachàpú. Github của web app này là https://github.com/nmq231293/Capstone-Project. App được deploy bằng Streamlit. Hãy hướng dẫn người dùng đăng ký, đăng nhập, gửi tiền, rút tiền một cách cực kỳ ngắn gọn, lịch sự bằng tiếng Việt."
     }
 
+    SYSTEM_PROMPT = """
+    Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "Simple Bank App".
+    Nhiệm vụ của bạn là hỗ trợ, giải đáp và hướng dẫn người dùng cách sử dụng các tính năng của app.
+
+    Thông tin về ứng dụng gồm các tính năng chính sau:
+    1. Đăng nhập / Đăng ký tài khoản hệ thống.
+    2. Xem số dư tài khoản trực tuyến.
+    3. Gửi tiền (Deposit) và Rút tiền (Withdraw).
+    4. Chuyển khoản nội bộ hoặc liên ngân hàng bảo mật.
+    5. Xem lịch sử giao dịch gần đây.
+
+    Quy tắc ứng xử:
+    - Luôn trả lời bằng tiếng Việt, lịch sự, ngắn gọn và dễ hiểu.
+    - Chỉ tập trung trả lời các câu hỏi liên quan đến dịch vụ ngân hàng hoặc cách thao tác trên ứng dụng này.
+    - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
+    """
     # Khởi tạo bộ nhớ session nếu chưa có
     if "messages" not in st.session_state:
         st.session_state.messages = [system_instruction]
@@ -94,7 +110,7 @@ def embed_chatbot():
         # Nếu trạng thái là MỞ CHAT
         if st.session_state.chat_open:
             # Tiêu đề chữ sáng hiển thị sắc nét trên nền tím tối
-            st.markdown('**:violet[🤖 TRỢ LÝ ẢO - NGÂN HÀNG KACHÀPÚ]**')
+            st.markdown('**:red[🤖 TRỢ LÝ ẢO - NGÂN HÀNG KACHÀPÚ]**')
             
             # Vùng hiển thị nội dung tin nhắn (Chiều cao cố định 300px, có thanh cuộn)
             chat_history_box = st.container(height=300)
@@ -137,7 +153,7 @@ def embed_chatbot():
 
         # 4. Khu vực nút bấm Thu/Phóng (Đóng/Mở) nằm dưới cùng bên phải của hộp chat
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
-        button_label = "❌ Đóng Chat" if st.session_state.chat_open else "💬 Hỗ trợ AI"
+        button_label = "❌ Đóng Chat" if st.session_state.chat_open else "💬 Trợ lý AI"
         if st.button(button_label, key="toggle_chat_btn", type="primary"):
             st.session_state.chat_open = not st.session_state.chat_open
             st.rerun()

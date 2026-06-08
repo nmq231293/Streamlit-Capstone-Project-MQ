@@ -1,6 +1,12 @@
 [theme]
-backgroundColor = "#170352"  # Màu nền chính
-secondaryBackgroundColor = "#02490f" # Màu nền của sidebar
-primaryColor = "#c2000a"  # Màu chính (nút, highlight)
-textColor = "#ede91c"     # Màu chữ
-#ffaf53
+# 1. Giữ nguyên màu nền chính (Tím than tối)
+backgroundColor = "#170352"
+
+# 2. Thay đổi màu xanh của Sidebar thành màu xanh dương nhạt dịu mắt hơn
+secondaryBackgroundColor = "#014589"
+
+# 3. ĐỔI NỀN NÚT BẤM: Chuyển sang màu xanh dương nhạt theo ý bạn
+primaryColor = "#b80b02"
+
+# 4. CHỮ TRONG KHUNG NHẬP LIỆU: Đổi sang màu vàng tươi tuyệt đối
+textColor = "#ffff00"
