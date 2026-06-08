@@ -43,15 +43,13 @@ def embed_chatbot():
     - Chỉ tập trung trả lời các câu hỏi liên quan đến dịch vụ ngân hàng hoặc cách thao tác trên ứng dụng này.
     - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
     """
-    # Khởi tạo bộ nhớ session nếu chưa có
+
     if "messages" not in st.session_state:
         st.session_state.messages = [system_instruction]
     
     if "chat_open" not in st.session_state:
         st.session_state.chat_open = False
 
-    # 2. BƠM CSS THUẦN ĐÃ SỬA LỖI VÀ ĐỔI TONE MÀU TÍM ĐỒNG BỘ
-    # Sử dụng thuộc tính động dựa trên trạng thái st.session_state.chat_open
     is_open = st.session_state.chat_open
     
     # Định hình các thông số CSS tùy theo trạng thái đóng/mở
@@ -64,7 +62,6 @@ def embed_chatbot():
     st.markdown(
         f"""
         <style>
-        /* Ghim khối chatbot lơ lửng cố định ở góc dưới bên phải màn hình */
         div[data-testid="stVerticalBlock"] > div:has(div.custom-floating-chat) {{
             position: fixed !important;
             bottom: 25px !important;
@@ -76,11 +73,10 @@ def embed_chatbot():
             padding: {padding_style} !important;
             z-index: 999999 !important;
             border: {border_style} !important;
-            backdrop-filter: blur(8px) !not-essential; /* Tạo hiệu ứng kính mờ thời thượng */
+            backdrop-filter: blur(8px) !not-essential;
             transition: all 0.2s ease-in-out;
         }}
 
-        /* Định dạng màu chữ cho phần tiêu đề màu neon sáng trên nền tối */
         .chat-title-text {{
             color: #e2e8f0 !important;
             font-weight: bold !important;
@@ -89,7 +85,6 @@ def embed_chatbot():
             letter-spacing: 0.5px;
         }}
 
-        /* Tinh chỉnh nút Đóng/Mở nằm sát bên phải */
         .floating-btn-container {{
             display: flex;
             justify-content: flex-end;
@@ -100,19 +95,15 @@ def embed_chatbot():
         unsafe_allow_html=True
     )
 
-    # 3. Tạo khối bọc giao diện
     chat_wrapper = st.container()
 
     with chat_wrapper:
-        # Nhãn nhận diện HTML giúp CSS tìm và ghim đúng vị trí khối này
         st.markdown('<div class="custom-floating-chat"></div>', unsafe_allow_html=True)
         
-        # Nếu trạng thái là MỞ CHAT
         if st.session_state.chat_open:
-            # Tiêu đề chữ sáng hiển thị sắc nét trên nền tím tối
+
             st.markdown('**:red[🤖 TRỢ LÝ ẢO - NGÂN HÀNG KACHÀPÚ]**')
             
-            # Vùng hiển thị nội dung tin nhắn (Chiều cao cố định 300px, có thanh cuộn)
             chat_history_box = st.container(height=300)
             
             with chat_history_box:
@@ -121,14 +112,12 @@ def embed_chatbot():
                         with st.chat_message(message["role"]):
                             st.write(message["content"])
 
-            # Ô nhập câu hỏi nằm cố định ngay dưới vùng lịch sử
             if user_query := st.chat_input("Nhập câu hỏi tại đây...", key="chat_input_unique"):
                 with chat_history_box:
                     with st.chat_message("user"):
                         st.write(f':green[{user_query.capitalize()}]')
                 st.session_state.messages.append({"role": "user", "content": f':green[{user_query.capitalize()}]'})
 
-                # Gọi API OpenAI xử lý phản hồi
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 with chat_history_box:
                     with st.chat_message("assistant"):
@@ -151,7 +140,6 @@ def embed_chatbot():
                 
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-        # 4. Khu vực nút bấm Thu/Phóng (Đóng/Mở) nằm dưới cùng bên phải của hộp chat
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
         button_label = "❌ Đóng Chat" if st.session_state.chat_open else "💬 Trợ lý AI"
         if st.button(button_label, key="toggle_chat_btn", type="primary"):
@@ -159,8 +147,8 @@ def embed_chatbot():
             st.rerun()
         st.markdown('</div>', unsafe_allow_html=True)
 
-    
-    
+
+
 # Khởi tạo đọc dữ liệu bank accounts (cũ)
 
 # account_file = 'Simple Bank App/bank_account.csv'

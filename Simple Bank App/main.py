@@ -55,6 +55,8 @@ if 'available_id_list' not in st.session_state:
     st.session_state.available_id_list = []
 if 'logout_state' not in st.session_state:
     st.session_state.logout_state = False
+if 'power_level' not in st.session_state:
+    st.session_state.power_level = 0
     
     
 st.markdown(
