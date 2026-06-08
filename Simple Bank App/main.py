@@ -1,10 +1,10 @@
 import streamlit as st
-from helpers import switch_page_check#, embed_chatbot
+from helpers import switch_page_check, embed_chatbot
 
 st.set_page_config(layout='wide')
 st.title('**:rainbow[NGÂN HÀNG KACHÀPÚ]**', width='stretch', text_alignment='center')
 
-#embed_chatbot()
+embed_chatbot()
 
 home = st.Page('pages/home.py', title='Trang chủ', icon='🏡')
 signup = st.Page('pages/signup.py', title='Đăng ký', icon='🔐')
