@@ -200,7 +200,7 @@ df = df.astype({
 
 # Xử lý dataframe
 
-df['ID'] = pd.Series(f'{x:08}' for x in list(df['ID']))
+df['ID'] = pd.Series(f'{x:08}' if str(x).isdigit() else x for x in list(df['ID']))
 df['Phone'] = '0' + df['Phone']
 pd.to_datetime(df['DoB'])
 df.set_index('ID', inplace=True)
@@ -222,8 +222,12 @@ def switch_page_confirm(page_path, page_trace = True):
 # Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
 def switch_page_check(page_path, page_trace = True):
     check = True
-    for i in ['login.py','signup.py','transfer.py','transfer_rehearsal.py']:
-        if i in str(st.session_state.current_page):
+    for i in ['login.py','signup.py']:
+        if i in str(st.session_state.current_page) and not st.session_state.login_state:
+            check = False
+            switch_page_confirm(page_path, page_trace)
+    for i in ['transfer.py','transfer_rehearsal.py']:
+        if i in str(st.session_state.current_page) and st.session_state.login_state:
             check = False
             switch_page_confirm(page_path, page_trace)
     if check:
@@ -498,9 +502,16 @@ def login_form():
                         st.session_state.login_noti = True
                         st.session_state.acc_name = df.loc[stk, 'Name']
                         st.session_state.acc_num = stk
+                        match stk:
+                            case 'creator':
+                                st.session_state.power_level = 3
+                            case 'tester':
+                                st.session_state.power_level = 2
+                            case 'viewer':
+                                st.session_state.power_level = 1    
                         st.switch_page('pages/login_success.py')
     if st.session_state.dem_sai_mk > 2:
-        st.session_state.dem_sai_mk = 0
+        st.session_state.dem_sai_mk = 0                            
         st.switch_page('pages/password_wrong.py')
         
 # Nhóm chức năng cài đặt

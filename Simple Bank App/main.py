@@ -21,11 +21,11 @@ withdraw_success = st.Page('pages/withdraw_success.py', title='Rút tiền thàn
 re_submit = st.Page('pages/re_submit.py', title='Không khả dụng', icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title='Sai mật khẩu', icon='❌')
 account_settings = st.Page('pages/account_settings.py', title='Sai mật khẩu', icon='⚙️')
-
+admin_power = st.Page('pages/admin_power.py', title='Công cụ quản trị', icon='👑')
 
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
-                    re_submit, password_wrong, account_settings], position='hidden')
+                    re_submit, password_wrong, account_settings, admin_power], position='hidden')
 
 if 'dem_sai_mk' not in st.session_state:
     st.session_state.dem_sai_mk = 0
@@ -85,6 +85,10 @@ with col1:
 with col4:
     if st.session_state.login_state:
         with st.popover('Cài đặt', icon='⚙️',type='secondary',use_container_width=False,width='content'):
+            if st.session_state.power_level > 0:
+                if st.button('**:violet[Công cụ Quản trị trang]**', icon='👑'):
+                    st.session_state.previous_page.append(st.session_state.current_page)
+                    st.switch_page('pages/admin_power.py')
             if st.button('**:green[Tài khoản]**', icon='🙎🏻‍♂️'):
                 st.session_state.previous_page.append(st.session_state.current_page)
                 st.switch_page('pages/account_settings.py')
@@ -92,6 +96,8 @@ with col4:
                 st.session_state.login_state = False
                 st.session_state.login_noti = False
                 st.session_state.acc_num = ''
+                st.session_state.acc_name = ''
+                st.session_state.power_level = 0
                 st.session_state.receiver_num = ''
                 st.session_state.transfer_amount = 0
                 st.session_state.dem_sai_mk = 0
