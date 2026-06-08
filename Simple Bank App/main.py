@@ -1,8 +1,10 @@
 import streamlit as st
-from helpers import switch_page_check
+from helpers import switch_page_check#, embed_chatbot
 
 st.set_page_config(layout='wide')
 st.title('**:rainbow[NGÂN HÀNG KACHÀPÚ]**', width='stretch', text_alignment='center')
+
+#embed_chatbot()
 
 home = st.Page('pages/home.py', title='Trang chủ', icon='🏡')
 signup = st.Page('pages/signup.py', title='Đăng ký', icon='🔐')
@@ -19,11 +21,12 @@ withdraw_success = st.Page('pages/withdraw_success.py', title='Rút tiền thàn
 re_submit = st.Page('pages/re_submit.py', title='Không khả dụng', icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title='Sai mật khẩu', icon='❌')
 account_settings = st.Page('pages/account_settings.py', title='Sai mật khẩu', icon='⚙️')
+AI_assistant = st.Page('pages/AI_assistant.py', title='AI hỗ trợ', icon='🤖')
 
 
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
-                    re_submit, password_wrong, account_settings], position='hidden')
+                    re_submit, password_wrong, account_settings, AI_assistant], position='hidden')
 
 if 'dem_sai_mk' not in st.session_state:
     st.session_state.dem_sai_mk = 0
@@ -82,6 +85,7 @@ with col4:
     if st.session_state.login_state:
         with st.popover('Cài đặt', icon='⚙️',type='secondary',use_container_width=False,width='content'):
             if st.button('**:green[Tài khoản]**', icon='🙎🏻‍♂️'):
+                st.session_state.previous_page.append(st.session_state.current_page)
                 st.switch_page('pages/account_settings.py')
             if st.button('**:red[Đăng xuất]**', icon='🔑'):
                 st.session_state.login_state = False
@@ -97,5 +101,8 @@ with col4:
                 if st.session_state.current_page != 'pages/home.py':
                     st.session_state.previous_page.append(st.session_state.current_page)
                 st.switch_page('pages/home.py')
+    if st.button('**:violet[AI hỗ trợ]**', icon='🤖'):
+        st.session_state.previous_page.append(st.session_state.current_page)
+        st.switch_page('pages/AI_assistant.py')        
 
 pg.run()

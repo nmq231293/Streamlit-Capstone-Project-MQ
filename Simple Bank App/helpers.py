@@ -5,6 +5,8 @@ import os
 import re
 import random
 from datetime import date, datetime
+from openai import OpenAI
+from streamlit_float import *
 
 # Tạo màu cho widget label:
 st.markdown(
@@ -17,6 +19,104 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
+
+def embed_chatbot():
+    # 1. Khởi tạo thư viện float (Bắt buộc gọi ở đầu)
+    float_init()
+
+    # 2. Khởi tạo OpenAI Client và lịch sử chat nếu chưa có
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "system", "content": "Bạn là trợ lý ảo của Simple Bank App. Hãy trả lời ngắn gọn, hỗ trợ người dùng bằng tiếng Việt."}
+        ]
+    
+    if "chat_open" not in st.session_state:
+        st.session_state.chat_open = False  # Trạng thái đóng/mở của cửa sổ chat
+
+    # 3. Tạo một Container tổng để chứa cả nút bấm và khung chat
+    # Thiết kế giao diện bằng HTML/CSS thô để tạo hiệu ứng bo góc và đổ bóng
+    st.markdown(
+        """
+        <style>
+        .floating-chat-container {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+        }
+        .chat-window {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
+            padding: 10px;
+            margin-bottom: 10px;
+            width: 350px;
+            height: 450px;
+            display: flex;
+            flex-direction: column;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+    # 4. Tạo khung chứa chatbot bằng Streamlit
+    chat_container = st.container()
+
+    with chat_container:
+        # Nếu trạng thái là MỞ (True), hiển thị khung chat
+        if st.session_state.chat_open:
+            # Tạo một khung nhỏ màu trắng, bo góc thông qua st.markdown ở trên
+            with st.container(border=True):
+                st.subheader("💬 Trợ lý Simple Bank", divider="blue")
+                
+                # Tạo khu vực cuộn xem tin nhắn (Giới hạn chiều cao 280px để vừa vặn)
+                chat_history_box = st.container(height=280)
+                with chat_history_box:
+                    for message in st.session_state.messages:
+                        if message["role"] != "system":
+                            with st.chat_message(message["role"]):
+                                st.write(message["content"])
+
+                # Ô nhập câu hỏi của người dùng
+                if user_query := st.chat_input("Nhập câu hỏi..."):
+                    with chat_history_box:
+                        with st.chat_message("user"):
+                            st.write(user_query)
+                    st.session_state.messages.append({"role": "user", "content": user_query})
+
+                    # Gọi API xử lý phản hồi từ GPT-4o-mini
+                    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+                    with chat_history_box:
+                        with st.chat_message("assistant"):
+                            message_placeholder = st.empty()
+                            full_response = ""
+                            response = client.chat.completions.create(
+                                model="gpt-4o-mini",
+                                messages=st.session_state.messages,
+                                stream=True,
+                            )
+                            for chunk in response:
+                                if chunk.choices.delta.content:
+                                    full_response += chunk.choices.delta.content
+                                    message_placeholder.write(full_response + "▌")
+                            message_placeholder.write(full_response)
+                    st.session_state.messages.append({"role": "assistant", "content": full_response})
+                    st.rerun() # Làm mới để cập nhật giao diện tin nhắn ngay lập tức
+
+        # 5. Nút bấm Thu/Phóng (Đóng/Mở) nằm dưới cùng bên phải
+        col1, col2 = st.columns([4, 1]) # Đẩy nút bấm sang rìa phải
+        with col2:
+            button_label = "❌ Đóng" if st.session_state.chat_open else "💬 Chat"
+            if st.button(button_label, key="toggle_chat_btn", type="primary"):
+                st.session_state.chat_open = not st.session_state.chat_open
+                st.rerun()
+
+    # 6. Lệnh ghim toàn bộ cụm này xuống góc phải màn hình
+    # bottom: khoảng cách với đáy (pixel), right: khoảng cách với lề phải (pixel)
+    chat_container.float("bottom: 20px; right: 20px; z-index: 9999;")
+
+# Khởi tạo đọc dữ liệu bank accounts (cũ)
 
 # account_file = 'Simple Bank App/bank_account.csv'
 
