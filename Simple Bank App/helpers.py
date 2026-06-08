@@ -21,7 +21,7 @@ st.markdown(
 )
 
 def embed_chatbot():
-    # 1. Khởi tạo kịch bản hệ thống cho OpenAI
+    
     system_instruction = {
         "role": "system", 
         "content": "Bạn là trợ lý ảo hỗ trợ web ứng dụng Ngân hàng Kachàpú. Github của web app này là https://github.com/nmq231293/Capstone-Project. App được deploy bằng Streamlit. Hãy hướng dẫn người dùng đăng ký, đăng nhập, gửi tiền, rút tiền một cách cực kỳ ngắn gọn, lịch sự bằng tiếng Việt."
