@@ -9,7 +9,7 @@ st.session_state.available_id_list = []
 
 if not st.session_state.login_state:
     if st.session_state.logout_state:
-        st.error(f'{text["logged_out_noti"]}')
+        st.success(f'{text["logged_out_noti"]}')
         st.session_state.logout_state = False
     col1, col2 = st.columns(2)
     with col1:

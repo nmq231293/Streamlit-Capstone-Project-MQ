@@ -1,5 +1,5 @@
 import streamlit as st
-from helpers import money_transfer, available_balance
+from helpers import available_balance
 
 if st.session_state.login_state == False:
     st.switch_page('pages/home.py')
@@ -18,16 +18,14 @@ elif st.session_state.transfer_state == 1:
     st.switch_page('pages/re_submit.py')
 elif st.session_state.transfer_state == 2:
     
-    st.session_state.transfer_state == 0
+    st.session_state.transfer_state = 0
 
     st.balloons()
-    
+    st.success(f'{text["transfer_success_title"]}')    
+    st.write(f'{text["available_balance"]}: :green[{format(available_balance(st.session_state.acc_num), ",")} VNĐ]')
     col1, col2= st.columns(2)
-    
+
     with col1:
-        st.success(f'{text["transfer_success_title"]}')
-        if st.session_state.login_state == True:
-            st.write(f'{text["available_balance"]}: {format(available_balance(st.session_state.acc_num), ",")} VNĐ')
         if st.button(f'{text["continue_transfer_button"]}', icon='💸'):
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/transfer.py')

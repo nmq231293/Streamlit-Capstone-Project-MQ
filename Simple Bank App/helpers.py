@@ -501,6 +501,8 @@ def login_form():
             elif mat_khau == '':
                 st.error(text['lg_err_pass_empty'])
             else:
+                if not stk.isdigit():
+                    stk = stk.lower()
                 match login_check(stk, mat_khau):
                     case 0:
                         st.error(text['lg_err_not_found'])
@@ -548,7 +550,7 @@ def money_transfer(sender:str, receiver:str, transfer_amount:int):
     global df
     df.loc[sender, 'Balance'] -= transfer_amount
     df.loc[receiver, 'Balance'] += transfer_amount
-    df.to_csv('bank_account.csv', index=False)
+    work_sheet_update()
 
 # Form tạo yêu cầu chuyển tiền
 def money_transfer_form():
@@ -557,20 +559,20 @@ def money_transfer_form():
     tien_ckc = st.session_state.transfer_amount
     
     with st.form('form_chuyen_khoan', clear_on_submit=False):
-        stk = st.text_input(text['tf_lbl_acc'], value=stkc, max_chars=8, placeholder=text['tf_placeholder_acc'])        
+        stk = st.text_input(text['tf_lbl_receiver'], value=stkc, max_chars=8, placeholder=text['tf_placeholder_receiver'])        
         tien_ck = st.number_input(text['tf_lbl_amount'], value=tien_ckc, max_value=500000000, step=100000, placeholder=text['tf_placeholder_amount'], format='%u')
-        st.write(text['tf_hint_limit'])
-        noi_dung = st.text_input(text['tf_lbl_msg'], max_chars=99, placeholder=text['tf_placeholder_msg'])
+        st.write(text['tf_limit_hint'])
+        noi_dung = st.text_input(text['tf_lbl_content'], max_chars=99, placeholder=text['tf_placeholder_content'])
         
         if st.form_submit_button(text['tf_btn_submit']):
             if stk == '':
                 st.error(text['tf_err_acc_empty'])
             elif stk == st.session_state.acc_num:
-                st.error(text['tf_err_same_acc'])
+                st.error(text['tf_err_self_transfer'])
             elif tien_ck < 10000:
-                st.error(text['tf_err_min_amount'])
+                st.error(text['tf_err_min_limit'])
             elif noi_dung == '':
-                st.error(text['tf_err_msg_empty'])
+                st.error(text['tf_err_content_empty'])
             else:
                 match transfer_check(stk, tien_ck):
                     case 0:
@@ -703,7 +705,7 @@ def transfer_rehearsal():
             else:
                 match login_check(st.session_state.acc_num, mat_khau):
                     case 1:
-                        # Đồng bộ đếm lỗi về wrong_password_count của hệ thống
+                        # Đếm số lần sai mật khẩu
                         st.session_state.wrong_password_count += 1
                         remaining_attempts = 3 - st.session_state.wrong_password_count
                         st.error(text['rh_err_wrong_pass'].format(remaining_attempts))
