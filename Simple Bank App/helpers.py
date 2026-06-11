@@ -24,22 +24,9 @@ st.markdown(
 # Chương trình chatbot trợ lý ảo:
 def embed_chatbot():
     
-    SYSTEM_PROMPT = """
-    Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
-    Nhiệm vụ của bạn là hỗ trợ, giải đáp và hướng dẫn người dùng cách sử dụng các tính năng của app.
-
-    Thông tin về ứng dụng gồm các tính năng chính sau:
-    1. Đăng nhập / Đăng ký tài khoản hệ thống.
-    2. Xem số dư tài khoản trực tuyến.
-    3. Gửi tiền (Deposit), Rút tiền (Withdraw).
-    4. Chuyển khoản nội bộ hoặc liên ngân hàng bảo mật.
-    5. Xem lịch sử giao dịch gần đây.
-
-    Quy tắc ứng xử:
-    - Luôn trả lời bằng tiếng Việt, lịch sự, ngắn gọn và dễ hiểu.
-    - Chỉ tập trung trả lời các câu hỏi liên quan đến dịch vụ ngân hàng hoặc cách thao tác trên ứng dụng này.
-    - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
-    """    
+    text = st.session_state.text
+    
+    SYSTEM_PROMPT = text['system_prompt']
     system_instruction = {
         "role": "system", 
         "content": SYSTEM_PROMPT
@@ -49,13 +36,18 @@ def embed_chatbot():
 
     if "messages" not in st.session_state:
         st.session_state.messages = [system_instruction]
-    
+    else:
+        if len(st.session_state.messages) > 0 and st.session_state.messages[0]["role"] == "system":
+            st.session_state.messages[0]["content"] = SYSTEM_PROMPT
+        else:
+            st.session_state.messages.insert(0, system_instruction)
+                
     if "chat_open" not in st.session_state:
         st.session_state.chat_open = False
 
     is_open = st.session_state.chat_open
     
-    # Định hình các thông số CSS tùy theo trạng thái đóng/mở
+    # Định hình các thông số CSS tùy theo trạng thái đóng/mở của chatbot
     bg_color = "rgba(30, 20, 60, 0.95)" if is_open else "transparent"
     box_shadow = "0px 8px 32px rgba(0, 0, 0, 0.5)" if is_open else "none"
     border_style = "1px solid rgba(255, 255, 255, 0.15)" if is_open else "none"
@@ -105,7 +97,7 @@ def embed_chatbot():
         
         if st.session_state.chat_open:
 
-            st.markdown('**:red[🤖 TRỢ LÝ ẢO - NGÂN HÀNG KACHÀPÚ]**')
+            st.markdown(f'**:red[🤖 {text["AI_chatbot_title"]}]**')
             
             chat_history_box = st.container(height=300)
             
@@ -115,7 +107,7 @@ def embed_chatbot():
                         with st.chat_message(message["role"]):
                             st.write(message["content"])
 
-            if user_query := st.chat_input("Nhập câu hỏi tại đây...", key="chat_input_unique"):
+            if user_query := st.chat_input(f"{text['AI_chatbot_input_placeholder']}", key="chat_input_unique"):
                 with chat_history_box:
                     with st.chat_message("user"):
                         st.write(f':green[{user_query.capitalize()}]')
@@ -144,7 +136,7 @@ def embed_chatbot():
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
 
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
-        button_label = "❌ Đóng Chat" if st.session_state.chat_open else "💬 Trợ lý AI"
+        button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
         if st.button(button_label, key="toggle_chat_btn", type="primary"):
             st.session_state.chat_open = not st.session_state.chat_open
             st.rerun()
@@ -208,6 +200,15 @@ df['Phone'] = '0' + df['Phone']
 pd.to_datetime(df['DoB'])
 df.set_index('ID', inplace=True)
 df.sort_index(inplace=True)
+
+
+# Hàm callback xử lý riêng cho Ngôn ngữ (Chạy trước khi render lại trang)
+def on_language_change():
+    new_lang = st.session_state["temp_lang_key"]
+
+    st.session_state.lang = new_lang
+    st.query_params["lang"] = new_lang
+
 
 # Hộp thoại báo khi rời những trang điền form
 @st.dialog('Xác nhận rời trang')

@@ -1,6 +1,5 @@
 # Secure data:
 Simple Bank App/.streamlit/secrets.toml
-# bank_account.csv
 test/
 # Byte-compiled / optimized / DLL files
 __pycache__/

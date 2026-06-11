@@ -1,57 +1,46 @@
 import streamlit as st
-from helpers import switch_page_check, embed_chatbot
+from helpers import switch_page_check, embed_chatbot, on_language_change
 from dictionary_data import DICTIONARY
 
-# Quy định bắt buộc: Thiết lập cấu hình trang phải nằm ở dòng ĐẦU TIÊN
+
 st.set_page_config(layout='wide')
 
-# 1. Định nghĩa hàm Callback xử lý riêng cho Ngôn ngữ (Chạy trước khi render lại trang)
-def on_language_change():
-    # Lấy giá trị người dùng vừa chọn từ widget tạm thời
-    new_lang = st.session_state["temp_lang_key"]
-    # Ghi đè vào session state chính
-    st.session_state.lang = new_lang
-    # Cập nhật trực tiếp lên thanh địa chỉ URL
-    st.query_params["lang"] = new_lang
 
-# 2. Khởi tạo giá trị ngôn ngữ ban đầu khi ứng dụng vừa bật lên
+
 if "lang" not in st.session_state:
-    # Ưu tiên lấy từ URL nếu người dùng truy cập trực tiếp bằng link, không thì mặc định là 'vi'
     st.session_state.lang = st.query_params.get("lang", "vi")
 
-# Luôn đảm bảo URL đồng bộ với session state gốc
+
 st.query_params["lang"] = st.session_state.lang
 
-# 3. Nạp bộ từ điển dựa trên ngôn ngữ hiện tại
+
 st.session_state.text = DICTIONARY[st.session_state.lang]
+
 
 LANG_LABELS = {
     "vi": "Tiếng Việt",
     "en": "English"
 }
 
-# 4. Hiển thị Widget chọn ngôn ngữ
+
 col1, col2, col3, col4 = st.columns(4)
 with col4:
-    # Tính toán chính xác vị trí index dựa trên state gốc
+    
     current_index = 1 if st.session_state.lang == 'en' else 0
     
     st.selectbox(
-        "Ngôn ngữ / Language:",
+        f'{st.session_state.text['language']}',
         options=["vi", "en"],
         index=current_index,
         format_func=lambda x: LANG_LABELS[x],
-        key="temp_lang_key",       # Sử dụng một key tạm thời cho widget
-        on_change=on_language_change # Gọi hàm callback xử lý ngay khi có biến động
+        key="temp_lang_key",
+        on_change=on_language_change,
+        width=125
     )
 
-# --- GIỮ NGUYÊN TOÀN BỘ PHẦN TIÊU ĐỀ VÀ KHỞI TẠO PAGES PHÍA DƯỚI CỦA BẠN ---
 st.title(f'**:rainbow[{st.session_state.text["main_title"]}]**', width='stretch', text_alignment='center')
+
 embed_chatbot()
-
-# ... (Giữ nguyên các dòng khởi tạo st.Page, st.navigation và các biến session_state bên dưới)
-
-
 
 home = st.Page('pages/home.py', title=st.session_state.text['home_title'], icon='🏡')
 signup = st.Page('pages/signup.py', title=st.session_state.text['signup_title'], icon='🔐')
