@@ -1,5 +1,122 @@
+# DICTIONARY = {
+#     'vi': {
+#         'main_title': 'NGÂN HÀNG REYNOLD',
+#         'language': 'Ngôn ngữ',
+#         'home_title': 'Trang chủ',
+#         'signup_title': 'Đăng ký',
+#         'signup_success_title': 'Đăng ký thành công',
+#         'login_title': 'Đăng nhập',
+#         'login_success_title': 'Đăng nhập thành công',
+#         'transfer_title': 'Chuyển khoản',
+#         'transfer_rehearsal_title': 'Kiểm tra chuyển khoản',
+#         'transfer_success_title': 'Chuyển khoản thành công',
+#         'deposit_title': 'Nạp tiền',
+#         'deposit_success_title': 'Nạp tiền thành công',
+#         'withdraw_title': 'Rút tiền',
+#         'withdraw_success_title': 'Rút tiền thành công',
+#         're_submit_title': 'Không khả dụng',
+#         'password_wrong_title': 'Sai mật khẩu',
+#         'account_settings_title': 'Cài đặt tài khoản',
+#         'admin_power_title': 'Công cụ quản trị',
+#         'back_to_home_button': 'Quay về trang chủ',
+#         'back_button': 'Quay lại trang trước',
+#         'settings_button': 'Cài đặt',
+#         'account_button': 'Tài khoản',
+#         'logout_button': 'Đăng xuất',
+#         'admin_power_title': 'Công cụ quản trị',
+#         'logged_in_noti': 'Đăng nhập thành công',
+#         'logged_out_noti': 'Đã đăng xuất',
+#         'login_success_spinner': 'Quý khách sẽ quay về trang chủ sau 3 giây ...',
+#         'password_wrong_header': 'Nhập sai mật khẩu quá 3 lần, quý khách sẽ được đưa về trang chủ sau 5 giây',
+#         're_submit_title': 'Trang không khả dụng, quý khách sẽ được đưa về trang chủ sau 3 giây',
+#         'redirecting_message': 'Đang điều hướng về trang chủ ...',
+#         'signup_success_message': 'Đăng ký tài khoản thành công! Số tài khoản của bạn là',
+#         'to_login_button': 'Đến trang đăng nhập',
+#         'greetings': 'Xin chào',
+#         'available_balance': 'Số dư khả dụng',
+#         'continue_transfer_button': 'Tiếp tục chuyển khoản',
+#         'AI_chatbot_title': 'Trợ lý AI',
+#         'AI_chatbot_input_placeholder': 'Nhập câu hỏi tại đây...',
+#         'system_prompt': '''        
+#             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
+#             Nhiệm vụ của bạn là hỗ trợ, giải đáp và hướng dẫn người dùng cách sử dụng các tính năng của app.
+
+#             Thông tin về ứng dụng gồm các tính năng chính sau:
+#             1. Đăng nhập / Đăng ký tài khoản hệ thống.
+#             2. Xem số dư tài khoản trực tuyến.
+#             3. Gửi tiền (Deposit), Rút tiền (Withdraw).
+#             4. Chuyển khoản nội bộ hoặc liên ngân hàng bảo mật.
+#             5. Xem lịch sử giao dịch gần đây.
+
+#             Quy tắc ứng xử:
+#             - Luôn trả lời bằng tiếng Việt, lịch sự, ngắn gọn và dễ hiểu.
+#             - Chỉ tập trung trả lời các câu hỏi liên quan đến dịch vụ ngân hàng hoặc cách thao tác trên ứng dụng này.
+#             - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
+#         ''',
+#         'AI_chatbot_close_button': 'Đóng cửa sổ trò chuyện',
+#     },
+    
+#     'en': {
+#         'main_title': 'REYNOLD BANK',
+#         'language': 'Language',
+#         'home_title': 'Home Page',
+#         'signup_title': 'Sign Up',
+#         'signup_success_title': 'Sign Up Success',
+#         'login_title': 'Log In',
+#         'login_success_title': 'Log In Success',
+#         'transfer_title': 'Transfer',
+#         'transfer_rehearsal_title': 'Transfer Rehearsal',
+#         'transfer_success_title': 'Transfer Success',
+#         'deposit_title': 'Deposit',
+#         'deposit_success_title': 'Deposit Success',
+#         'withdraw_title': 'Withdraw',
+#         'withdraw_success_title': 'Withdraw Success',
+#         're_submit_title': 'Unavailable',
+#         'password_wrong_title': 'Wrong Password',
+#         'account_settings_title': 'Account Settings',
+#         'admin_power_title': 'Admin Tools',
+#         'back_to_home_button': 'Back to Home',
+#         'back_button': 'Back to previous page',
+#         'settings_button': 'Settings',
+#         'account_button': 'Account',
+#         'logout_button': 'Logout',
+#         'admin_power_title': 'Admin Tools',
+#         'logged_in_noti': 'Successfully logged in',
+#         'logged_out_noti': 'Successfully logged out',
+#         'login_success_spinner': 'You will be redirected to home page after 3 seconds ...',
+#         'password_wrong_header': 'Password was wrong more than 3 times, you will be redirected to home page after 5 seconds',
+#         're_submit_title': 'Unavailable page, you will be redirected to home page after 3 seconds',
+#         'redirecting_message': 'Redirecting to home page ...',
+#         'signup_success_message': 'Account successfully created! Your account number is',
+#         'to_login_button': 'Go to log in page',
+#         'greetings': 'Welcome',
+#         'available_balance': 'Available balance',
+#         'continue_transfer_button': 'Transfer again',
+#         'AI_chatbot_title': 'AI Assistant',
+#         'AI_chatbot_input_placeholder': 'Enter your question here...',
+#         'system_prompt': '''
+#             You are a smart virtual assistant integrated into the "REYNOLD BANK" application.
+#             Your task is to assist, answer questions, and guide users on how to use the app's features.
+
+#             The application includes the following main features:
+#             1. User registration and login.
+#             2. Real-time account balance viewing.
+#             3. Secure internal and interbank money transfer.
+#             4. Deposit and Withdraw money.
+#             5. View recent transaction history.
+
+#             Code of conduct:
+#             - Always respond in English, politely, concisely, and clearly.
+#             - Focus solely on answering questions related to banking services or how to operate within this application.
+#             - If users ask about topics outside the scope of the application, politely decline and steer them back to the main topic.
+#         ''',
+#         'AI_chatbot_close_button': 'Close chat window',
+#     }
+# }
+
 DICTIONARY = {
     'vi': {
+        # --- TIÊU ĐỀ TRANG & ĐIỀU HƯỚNG ---
         'main_title': 'NGÂN HÀNG REYNOLD',
         'language': 'Ngôn ngữ',
         'home_title': 'Trang chủ',
@@ -14,7 +131,7 @@ DICTIONARY = {
         'deposit_success_title': 'Nạp tiền thành công',
         'withdraw_title': 'Rút tiền',
         'withdraw_success_title': 'Rút tiền thành công',
-        're_submit_title': 'Không khả dụng',
+        're_submit_title': 'Trang không khả dụng, quý khách sẽ được đưa về trang chủ sau 3 giây',
         'password_wrong_title': 'Sai mật khẩu',
         'account_settings_title': 'Cài đặt tài khoản',
         'admin_power_title': 'Công cụ quản trị',
@@ -23,12 +140,10 @@ DICTIONARY = {
         'settings_button': 'Cài đặt',
         'account_button': 'Tài khoản',
         'logout_button': 'Đăng xuất',
-        'admin_power_title': 'Công cụ quản trị',
         'logged_in_noti': 'Đăng nhập thành công',
         'logged_out_noti': 'Đã đăng xuất',
         'login_success_spinner': 'Quý khách sẽ quay về trang chủ sau 3 giây ...',
         'password_wrong_header': 'Nhập sai mật khẩu quá 3 lần, quý khách sẽ được đưa về trang chủ sau 5 giây',
-        're_submit_title': 'Trang không khả dụng, quý khách sẽ được đưa về trang chủ sau 3 giây',
         'redirecting_message': 'Đang điều hướng về trang chủ ...',
         'signup_success_message': 'Đăng ký tài khoản thành công! Số tài khoản của bạn là',
         'to_login_button': 'Đến trang đăng nhập',
@@ -37,6 +152,90 @@ DICTIONARY = {
         'continue_transfer_button': 'Tiếp tục chuyển khoản',
         'AI_chatbot_title': 'Trợ lý AI',
         'AI_chatbot_input_placeholder': 'Nhập câu hỏi tại đây...',
+        'AI_chatbot_close_button': 'Đóng cửa sổ trò chuyện',
+
+        # --- HỘP THOẠI XÁC NHẬN RỜI TRANG ---
+        'dialog_leave_title': 'Xác nhận rời trang',
+        'dialog_leave_warning': 'Nếu rời khỏi trang, nội dung bạn đã điền sẽ không được lưu. Bạn có chắc muốn rời khỏi trang này chứ?',
+        'dialog_leave_btn': 'Rời khỏi trang này',
+        'dialog_stay_btn': 'Ở lại trang này',
+
+        # --- FORM ĐĂNG KÝ (SIGNUP FORM) ---
+        'su_lbl_name': 'Vui lòng nhập tên của bạn',
+        'su_lbl_dob': 'Chọn ngày sinh: ',
+        'su_lbl_phone': 'Nhập SĐT của bạn',
+        'su_lbl_email': 'Nhập email của bạn: ',
+        'su_lbl_pass': 'Vui lòng nhập mật khẩu',
+        'su_lbl_confirm_pass': 'Vui lòng xác nhận lại mật khẩu',
+        'su_lbl_balance': 'Nhập số tiền khi tạo tài khoản',
+        'su_placeholder_required': 'Không được để trống',
+        'su_section_optional': 'PHẦN TỰ CHỌN',
+        'su_lbl_custom_id': 'Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống',
+        'su_placeholder_id_avail': 'đang khả dụng',
+        'su_info_dob_avail': 'Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bấm đăng ký để chọn dãy số này',
+        'su_radio_single_avail': 'Xác nhận dùng {} làm số tài khoản',
+        'su_radio_single_desc': 'Dãy số quý khách đã chọn khả dụng để làm số tài khoản, quý khách hãy xác nhận dùng dãy số này. Nếu không hãy chọn mặc định để lấy một số ngẫu nhiên hoặc chọn một dãy số khác',
+        'su_pills_multi_desc': 'Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn mặc định để nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác',
+        'su_radio_multi_lbl': 'Chọn stk theo',
+        'su_opt_default': 'Mặc định',
+        'su_opt_change_id': 'Đổi dãy số khác',
+        'su_info_choose_suggest': 'Quý khách hãy chọn một số tài khoản trong danh sách gợi ý',
+        'su_btn_signup': 'Đăng ký',
+        'su_err_name_empty': 'Tên không được để trống',
+        'su_err_name_fullname': 'Phải có đủ họ và tên',
+        'su_err_name_digit': 'Tên không được có số',
+        'su_err_age_limit': 'Bạn phải trên 16 tuổi mới được tạo tài khoản',
+        'su_err_phone_format': 'Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số',
+        'su_err_phone_exist': 'Số điện thoại đã được đăng ký cho tài khoản khác',
+        'su_err_email_format': 'Email sai cú pháp',
+        'su_err_email_exist': 'Email đã được đăng ký cho tài khoản khác',
+        'su_err_pass_empty': 'Mật khẩu không được để trống',
+        'su_err_pass_length': 'Mật khẩu phải chứa từ 8-24 ký tự',
+        'su_err_pass_mismatch': 'Xác nhận mật khẩu không trùng khớp',
+        'su_err_must_choose_id': 'Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác',
+        'su_err_id_digit': 'Số tài khoản không được chứa chữ cái',
+        'su_err_id_length': 'Số tài khoản không được quá 8 chữ số',
+        'su_err_no_avail_id': 'Không còn số tài khoản khả dụng nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống',
+        'su_err_recheck': 'Vui lòng kiểm tra và nhập lại',
+
+        # --- FORM ĐĂNG NHẬP (LOGIN FORM) ---
+        'lg_lbl_acc': 'Số tài khoản',
+        'lg_placeholder_acc': 'Nhập số tài khoản của quý khách',
+        'lg_lbl_pass': 'Mật khẩu',
+        'lg_placeholder_pass': 'Nhập mật khẩu đăng nhập',
+        'lg_btn_submit': 'Đăng nhập',
+        'lg_err_acc_empty': 'Số tài khoản không được bỏ trống',
+        'lg_err_pass_empty': 'Vui lòng điền mật khẩu',
+        'lg_err_not_found': 'Không tìm thấy tài khoản',
+        'lg_err_wrong_pass': 'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{}]** lần nữa',
+
+        # --- FORM CHUYỂN TIỀN (TRANSFER FORM) ---
+        'tf_lbl_receiver': 'Số tài khoản cần chuyển',
+        'tf_placeholder_receiver': 'Nhập số tài khoản người nhận',
+        'tf_lbl_amount': 'Số tiền cần chuyển',
+        'tf_placeholder_amount': 'Nhập số tiền cần chuyển',
+        'tf_limit_hint': 'Chuyển khoản ít nhất 10.000 đồng và nhiều nhất 500.000.000 đồng trong một lần chuyển',
+        'tf_lbl_content': 'Nội dung',
+        'tf_placeholder_content': 'Nhập nội dung chuyển khoản',
+        'tf_btn_submit': 'Chuyển khoản',
+        'tf_err_self_transfer': 'Đây là số tài khoản của quý khách, vui lòng điền số tài khoản khác',
+        'tf_err_min_limit': 'Số tiền chuyển không được nhỏ hơn 10.000 đồng',
+        'tf_err_content_empty': 'Nội dung không được bỏ trống',
+        'tf_err_insufficient': 'Không đủ tiền để chuyển',
+
+        # --- FORM XÁC NHẬN CHUYỂN TIỀN (TRANSFER REHEARSAL) ---
+        'rh_amount': 'Số tiền chuyển khoản: **:green[{} VNĐ]**',
+        'rh_words': 'Số tiền bằng chữ: **:green[{}]**',
+        'rh_sender': 'Người gửi: **:green[{}]**',
+        'rh_sender_acc': 'Số tài khoản người gửi: **:green[{}]**',
+        'rh_receiver': 'Người nhận: **:green[{}]**',
+        'rh_receiver_acc': 'Số tài khoản người nhận: **:green[{}]**',
+        'rh_lbl_pass': 'Mật khẩu xác nhận',
+        'rh_placeholder_pass': 'Nhập lại mật khẩu để xác nhận chuyển khoản',
+        'rh_btn_submit': 'Xác nhận chuyển tiền',
+        'rh_err_pass_empty': 'Vui lòng điền mật khẩu',
+        'rh_err_wrong_pass': 'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{}]** lần nữa',
+        # --- SYSTEM PROMPT CHATBOT VI ---
         'system_prompt': '''        
             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
             Nhiệm vụ của bạn là hỗ trợ, giải đáp và hướng dẫn người dùng cách sử dụng các tính năng của app.
@@ -53,10 +252,9 @@ DICTIONARY = {
             - Chỉ tập trung trả lời các câu hỏi liên quan đến dịch vụ ngân hàng hoặc cách thao tác trên ứng dụng này.
             - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
         ''',
-        'AI_chatbot_close_button': 'Đóng cửa sổ trò chuyện',
     },
-    
     'en': {
+        # --- PAGE TITLES & NAVIGATION ---
         'main_title': 'REYNOLD BANK',
         'language': 'Language',
         'home_title': 'Home Page',
@@ -71,7 +269,7 @@ DICTIONARY = {
         'deposit_success_title': 'Deposit Success',
         'withdraw_title': 'Withdraw',
         'withdraw_success_title': 'Withdraw Success',
-        're_submit_title': 'Unavailable',
+        're_submit_title': 'Unavailable page, you will be redirected to home page after 3 seconds',
         'password_wrong_title': 'Wrong Password',
         'account_settings_title': 'Account Settings',
         'admin_power_title': 'Admin Tools',
@@ -80,12 +278,10 @@ DICTIONARY = {
         'settings_button': 'Settings',
         'account_button': 'Account',
         'logout_button': 'Logout',
-        'admin_power_title': 'Admin Tools',
         'logged_in_noti': 'Successfully logged in',
         'logged_out_noti': 'Successfully logged out',
         'login_success_spinner': 'You will be redirected to home page after 3 seconds ...',
         'password_wrong_header': 'Password was wrong more than 3 times, you will be redirected to home page after 5 seconds',
-        're_submit_title': 'Unavailable page, you will be redirected to home page after 3 seconds',
         'redirecting_message': 'Redirecting to home page ...',
         'signup_success_message': 'Account successfully created! Your account number is',
         'to_login_button': 'Go to log in page',
@@ -94,6 +290,90 @@ DICTIONARY = {
         'continue_transfer_button': 'Transfer again',
         'AI_chatbot_title': 'AI Assistant',
         'AI_chatbot_input_placeholder': 'Enter your question here...',
+        'AI_chatbot_close_button': 'Close chat window',
+
+        # --- CONFIRM LEAVE PAGE DIALOG (EN) ---
+        'dialog_leave_title': 'Confirm leaving this page',
+        'dialog_leave_warning': 'If you leave, your unsaved progress on this form will be lost. Are you sure you want to proceed?',
+        'dialog_leave_btn': 'Leave this page',
+        'dialog_stay_btn': 'Stay on this page',
+        # --- SIGNUP FORM (EN) ---
+        'su_lbl_name': 'Please enter your full name',
+        'su_lbl_dob': 'Select Date of Birth:',
+        'su_lbl_phone': 'Enter your phone number',
+        'su_lbl_email': 'Enter your email address:',
+        'su_lbl_pass': 'Please enter a password',
+        'su_lbl_confirm_pass': 'Please confirm your password',
+        'su_lbl_balance': 'Enter initial deposit amount',
+        'su_placeholder_required': 'Cannot be left empty',
+        'su_section_optional': 'OPTIONAL SELECTION',
+        'su_lbl_custom_id': 'Enter preferred digits for your account number, or leave blank to receive a system default account number',
+        'su_placeholder_id_avail': 'is available',
+        'su_info_dob_avail': 'Your date of birth digits are available to use as your account number. Click register to select this option.',
+        'su_radio_single_avail': 'Confirm using {} as account number',
+        'su_radio_single_desc': 'Your selected digits are available for your account number. Please confirm to use them. Otherwise, select Default to get a random number or change to different digits',
+        'su_pills_multi_desc': 'Below are a few available account numbers containing your favorite digits, please select one. You can select Default to receive a random account number or change to different digits',
+        'su_radio_multi_lbl': 'Select account number by',
+        'su_opt_default': 'Default',
+        'su_opt_change_id': 'Change digits',
+        'su_info_choose_suggest': 'Please choose an account number from the suggested list',
+        'su_btn_signup': 'Register',
+        'su_err_name_empty': 'Name cannot be empty',
+        'su_err_name_fullname': 'Must provide full first and last name',
+        'su_err_name_digit': 'Name cannot contain numbers',
+        'su_err_age_limit': 'You must be at least 16 years old to create an account',
+        'su_err_phone_format': 'Phone number must start with 0 or 84 followed by 9-10 digits',
+        'su_err_phone_exist': 'This phone number is already registered to another account',
+        'su_err_email_format': 'Invalid email format',
+        'su_err_email_exist': 'This email address is already registered to another account',
+        'su_err_pass_empty': 'Password cannot be empty',
+        'su_err_pass_length': 'Password must be between 8 and 24 characters',
+        'su_err_pass_mismatch': 'Password confirmation does not match',
+        'su_err_must_choose_id': 'You must select an account number. Otherwise, choose Default or Change digits',
+        'su_err_id_digit': 'Account number cannot contain letters',
+        'su_err_id_length': 'Account number cannot exceed 8 digits',
+        'su_err_no_avail_id': 'No available account numbers contain these digits, please choose others or leave blank',
+        'su_err_recheck': 'Please check the information and try again',
+
+        # --- LOGIN FORM (EN) ---
+        'lg_lbl_acc': 'Account Number',
+        'lg_placeholder_acc': 'Enter your account number',
+        'lg_lbl_pass': 'Password',
+        'lg_placeholder_pass': 'Enter your password',
+        'lg_btn_submit': 'Log In',
+        'lg_err_acc_empty': 'Account number cannot be empty',
+        'lg_err_pass_empty': 'Password is required',
+        'lg_err_not_found': 'Account number not found',
+        'lg_err_wrong_pass': 'Incorrect password. You will be redirected to home page after **:red[{}]** more attempts',
+
+        # --- TRANSFER FORM (EN) ---
+        'tf_lbl_receiver': 'Recipient Account Number',
+        'tf_placeholder_receiver': 'Enter recipient account number',
+        'tf_lbl_amount': 'Transfer Amount',
+        'tf_placeholder_amount': 'Enter amount to transfer',
+        'tf_limit_hint': 'Transfer limit: Minimum 10,000 VND and Maximum 500,000,000 VND per transaction',
+        'tf_lbl_content': 'Message / Reference',
+        'tf_placeholder_content': 'Enter transfer reference description',
+        'tf_btn_submit': 'Transfer',
+        'tf_err_self_transfer': 'This is your own account number, please enter a different account number',
+        'tf_err_min_limit': 'Transfer amount cannot be less than 10,000 VND',
+        'tf_err_content_empty': 'Reference message cannot be empty',
+        'tf_err_insufficient': 'Insufficient funds to complete this transfer',
+
+        # --- REHEARSAL FORM (EN) ---
+        'rh_amount': 'Transfer Amount: **:green[{} VND]**',
+        'rh_words': 'Amount in words: **:green[{}]**',
+        'rh_sender': 'Sender: **:green[{}]**',
+        'rh_sender_acc': 'Sender Account: **:green[{}]**',
+        'rh_receiver': 'Recipient: **:green[{}]**',
+        'rh_receiver_acc': 'Recipient Account: **:green[{}]**',
+        'rh_lbl_pass': 'Verification Password',
+        'rh_placeholder_pass': 'Re-enter your password to confirm fund transfer',
+        'rh_btn_submit': 'Confirm Transfer',
+        'rh_err_pass_empty': 'Please enter your password',
+        'rh_err_wrong_pass': 'Incorrect password. You will be redirected to home page after **:red[{}]** more attempts',
+
+        # --- SYSTEM PROMPT CHATBOT EN ---
         'system_prompt': '''
             You are a smart virtual assistant integrated into the "REYNOLD BANK" application.
             Your task is to assist, answer questions, and guide users on how to use the app's features.
@@ -110,6 +390,5 @@ DICTIONARY = {
             - Focus solely on answering questions related to banking services or how to operate within this application.
             - If users ask about topics outside the scope of the application, politely decline and steer them back to the main topic.
         ''',
-        'AI_chatbot_close_button': 'Close chat window',
     }
 }

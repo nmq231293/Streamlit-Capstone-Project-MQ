@@ -188,19 +188,34 @@ def on_language_change():
     st.session_state.lang = new_lang
     st.query_params["lang"] = new_lang
 
-
+def switch_page_dialog_title():
+    if 'text' in st.session_state:
+        result = st.session_state.text.get('dialog_leave_title', 'Xác nhận rời trang')
+    else:
+        result = 'Xác nhận rời trang'
+    return result
+    
 # Hộp thoại báo khi rời những trang điền form
-@st.dialog('Xác nhận rời trang')
+@st.dialog(':orange[==================================]')
 def switch_page_confirm(page_path, page_trace = True):
-    st.warning('Nếu rời khỏi trang, nội dung bạn đã điền sẽ không được lưu. Bạn có chắc muốn rời khỏi trang này chứ?')
-    if st.button('**:red[Rời khỏi trang này]**'):
+    
+    st.header(f'**:red[{'⚠️' + switch_page_dialog_title().upper() + '⚠️'}]**',text_alignment='center')
+    
+    text = st.session_state.text
+    
+    st.warning(text.get('dialog_leave_warning', 'Nếu rời khỏi trang...'))
+    
+    if st.button(f"**:red[{text.get('dialog_leave_btn', 'Rời khỏi trang này')}]**"):
         if page_trace:
             st.session_state.previous_page.append(st.session_state.current_page)
         else:
             st.session_state.previous_page.pop(-1)
         st.switch_page(page_path)
-    if st.button('**:green[Ở lại trang này]**'):
+        
+    if st.button(f"**:green[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**"):
         st.rerun()
+        
+    st.header(':orange[==================================]')
 
 # Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
 def switch_page_check(page_path, page_trace = True):
@@ -324,7 +339,7 @@ def work_sheet_update():
     worksheet.update(range_name='A1', values=data_to_upload)
 
     pd.to_datetime(df['DoB'])
-    df.set_index('ID')
+    df.set_index('ID', inplace=True)
 
 # Hàm tạo tài khoản mới
 def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
@@ -338,7 +353,7 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                             'Balance':sodu
                             })
     df.sort_index(inplace=True)
-    # df.to_csv(account_file)
+
     work_sheet_update()
 
 # Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
@@ -348,94 +363,101 @@ def process_temp_DoB():
 
 # Form đăng ký tài khoản mới
 def signup_form():
-    ten = st.text_input('Vui lòng nhập tên của bạn', value='Nguyễn Văn A', placeholder='Không được để trống')
-    ngay_sinh = st.date_input('Chọn ngày sinh: ', value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY', key= 'temp_DoB', on_change=process_temp_DoB)
-    sdt = st.text_input('Nhập SĐT của bạn')
-    email = st.text_input('Nhập email của bạn: ')
-    mat_khau = st.text_input('Vui lòng nhập mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
-    xn_mat_khau = st.text_input('Vui lòng xác nhận lại mật khẩu', type='password', max_chars=24, placeholder='Không được để trống')
-    sodu = st.number_input('Nhập số tiền khi tạo tài khoản', value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder='Không được để trống', format= '%d')
+    text = st.session_state.text
+
+    ten = st.text_input(text['su_lbl_name'], value='Nguyễn Văn A', placeholder=text['su_placeholder_required'])
+    ngay_sinh = st.date_input(text['su_lbl_dob'], value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY', key= 'temp_DoB', on_change=process_temp_DoB)
+    sdt = st.text_input(text['su_lbl_phone'])
+    email = st.text_input(text['su_lbl_email'])
+    mat_khau = st.text_input(text['su_lbl_pass'], type='password', max_chars=24, placeholder=text['su_placeholder_required'])
+    xn_mat_khau = st.text_input(text['su_lbl_confirm_pass'], type='password', max_chars=24, placeholder=text['su_placeholder_required'])
+    sodu = st.number_input(text['su_lbl_balance'], value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder=text['su_placeholder_required'], format= '%d')
     stk_mac_dinh = new_id_check(st.session_state.pr_temp_DoB)
     st.markdown('')
-    st.markdown('**:violet[PHẦN TỰ CHỌN]**')
+    st.markdown(f"**:violet[{text['su_section_optional']}]**")
+    
     if st.session_state.available_id_list == []:
-        stk = st.text_input('Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống'
-                            ,placeholder=stk_mac_dinh + ' đang khả dụng', max_chars=8
+        stk = st.text_input(text['su_lbl_custom_id']
+                            ,placeholder=stk_mac_dinh + ' ' + text['su_placeholder_id_avail'], max_chars=8
                             )
         if stk_mac_dinh == st.session_state.pr_temp_DoB and calculate_age(ngay_sinh) >= 16:
-            st.info('Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bấm đăng ký để chọn dãy số này')
+            st.info(text['su_info_dob_avail'])
+            
     elif len(st.session_state.available_id_list) == 1:
-        stk_modify = st.radio('Dãy số quý khách đã chọn khả dụng để làm số tài khoản, quý khách hãy xác nhận dùng dãy số này. Nếu không hãy chọn mặc định để lấy một số ngẫu nhiên hoặc chọn một dãy số khác',
-                    [f'Xác nhận dùng {st.session_state.available_id_list[0]} làm số tài khoản'] + ['Mặc định', 'Đổi dãy số khác'], index=0)
+        stk_modify = st.radio(text['su_radio_single_desc'],
+                    [text['su_radio_single_avail'].format(st.session_state.available_id_list[0])] + [text['su_opt_default'], text['su_opt_change_id']], index=0)
+                    
     else:
-        stk = st.pills('Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn mặc định để nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác'
+        stk = st.pills(text['su_pills_multi_desc']
                             , st.session_state.available_id_list,
                         )
-        stk_modify = st.radio('Chọn stk theo', ['Mặc định', 'Đổi dãy số khác'], index=None, label_visibility='hidden')
-        st.info('Quý khách hãy chọn một số tài khoản trong danh sách gợi ý')
-    if st.button('Đăng ký'):
+        stk_modify = st.radio(text['su_radio_multi_lbl'], [text['su_opt_default'], text['su_opt_change_id']], index=None, label_visibility='hidden')
+        st.info(text['su_info_choose_suggest'])
+        
+    if st.button(text['su_btn_signup']):
         form_check = True
         if ten == '':
-            st.error('Tên không được để trống')
+            st.error(text['su_err_name_empty'])
             form_check = False
         elif ' ' not in ten:
-            st.error('Phải có đủ họ và tên')
+            st.error(text['su_err_name_fullname'])
             form_check = False
         elif ten.isdigit():
-            st.error('Tên không được có số')
+            st.error(text['su_err_name_digit'])
             form_check = False            
         if calculate_age(ngay_sinh) < 16:
-            st.error('Bạn phải trên 16 tuổi mới được tạo tài khoản')
+            st.error(text['su_err_age_limit'])
             form_check = False
         if not validate_phone(sdt):
-            st.error('Số điện thoại phải bắt đầu là 0 hoặc 84 và kèm theo 9-10 chữ số')
+            st.error(text['su_err_phone_format'])
             form_check = False
         elif sdt in list(df['Phone']):
-            st.error('Số điện thoại đã được đăng ký cho tài khoản khác')
+            st.error(text['su_err_phone_exist'])
             form_check = False
         if not validate_email(email):
-            st.error('Email sai cú pháp')
+            st.error(text['su_err_email_format'])
             form_check = False
         elif email.upper() in list(df['Email'].str.upper()):
-            st.error('Email đã được đăng ký cho tài khoản khác')
+            st.error(text['su_err_email_exist'])
             form_check = False
         if mat_khau == '':
-            st.error('Mật khẩu không được để trống')
+            st.error(text['su_err_pass_empty'])
             form_check = False
         elif len(mat_khau) < 8:
-            st.error('Mật khẩu phải chứa từ 8-24 ký tự')
+            st.error(text['su_err_pass_length'])
             form_check = False
         elif mat_khau != xn_mat_khau:
-            st.error('Xác nhận mật khẩu không trùng khớp')
+            st.error(text['su_err_pass_mismatch'])
             form_check = False            
         if st.session_state.available_id_list != [] and stk_modify != None:
-            if 'Xác nhận' in stk_modify:
+            if 'Xác nhận' in stk_modify or 'Confirm' in stk_modify:
                 stk = st.session_state.available_id_list[0]
             elif stk == None:
                 stk = stk_modify
         if stk == None:
-            st.error('Bạn phải chọn một dãy số làm số tài khoản. Nếu không hãy chọn Mặc định hoặc Đổi dãy số khác')
+            st.error(text['su_err_must_choose_id'])
             form_check = False
-        elif stk == '' or stk == 'Mặc định':
+        elif stk == '' or stk == text['su_opt_default'] or stk == 'Mặc định':
             stk = stk_mac_dinh
             stkc = stk_mac_dinh
-        elif stk == 'Đổi dãy số khác':
+        elif stk == text['su_opt_change_id'] or stk == 'Đổi dãy số khác':
             st.session_state.available_id_list = []
         elif not stk.isdigit():
-            st.error('Số tài khoản không được chứa chữ cái')
+            st.error(text['su_err_id_digit'])
             form_check = False
         elif len(stk) > 8:
-            st.error('Số tài khoản không được quá 8 chữ số')
+            st.error(text['su_err_id_length'])
             form_check = False
         else:
             stkc = f'{int(stk):08}'
+            
         if form_check:
-            if stk == 'Đổi dãy số khác':           
+            if stk == text['su_opt_change_id'] or stk == 'Đổi dãy số khác':           
                 st.rerun()
             if not id_available_check(stkc) or len(stk) < 8:
                 st.session_state.available_id_list = new_id_suggest(stk,28)
                 if st.session_state.available_id_list == []:
-                    st.error('Không còn số tài khoản khả dụng nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống')
+                    st.error(text['su_err_no_avail_id'])
                     form_check = False
                 else:
                     st.rerun()
@@ -451,10 +473,13 @@ def signup_form():
             st.session_state.signup_state = True
             st.switch_page('pages/signup_success.py')
         else:
-            st.error('Vui lòng kiểm tra và nhập lại')
+            st.error(text['su_err_recheck'])
+
+
 
 # Hàm kiểm tra đăng nhập. KQ trả về 2 là thành công, 1 là sai mật khẩu, 0 là không tồn tại tài khoản
 def login_check(stk:str, mat_khau:str):
+    global df
     if stk in df.index:
         if mat_khau == df.loc[stk, 'Password']:
             return 2
@@ -465,21 +490,24 @@ def login_check(stk:str, mat_khau:str):
 
 # Form đăng nhập
 def login_form():
+    text = st.session_state.text 
     with st.form('form_dang_nhap', clear_on_submit=False):
-        stk = st.text_input('Số tài khoản', value=st.session_state.acc_num, max_chars=8, placeholder='Nhập số tài khoản của quý khách')        
-        mat_khau = st.text_input('Mật khẩu', type='password', max_chars=24, placeholder='Nhập mật khẩu đăng nhập')
-        if st.form_submit_button('Đăng nhập'):
+        stk = st.text_input(text['lg_lbl_acc'], value=st.session_state.acc_num, max_chars=8, placeholder=text['lg_placeholder_acc'])        
+        mat_khau = st.text_input(text['lg_lbl_pass'], type='password', max_chars=24, placeholder=text['lg_placeholder_pass'])
+
+        if st.form_submit_button(text['lg_btn_submit']):
             if stk == '':
-                st.error('Số tài khoản không được bỏ trống')
+                st.error(text['lg_err_acc_empty'])
             elif mat_khau == '':
-                st.error('Vui lòng điền mật khẩu')
+                st.error(text['lg_err_pass_empty'])
             else:
                 match login_check(stk, mat_khau):
                     case 0:
-                        st.error('Không tìm thấy tài khoản')
+                        st.error(text['lg_err_not_found'])
                     case 1:
                         st.session_state.wrong_password_count += 1
-                        st.error(f'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{3-st.session_state.dem_sai_mk}]** lần nữa')
+                        remaining_attempts = 3 - st.session_state.wrong_password_count
+                        st.error(text['lg_err_wrong_pass'].format(remaining_attempts))
                     case 2:
                         st.session_state.previous_page.append(st.session_state.current_page)
                         st.session_state.login_state = True
@@ -494,9 +522,11 @@ def login_form():
                             case 'viewer':
                                 st.session_state.power_level = 1    
                         st.switch_page('pages/login_success.py')
+                        
     if st.session_state.wrong_password_count > 2:
         st.session_state.wrong_password_count = 0                            
         st.switch_page('pages/password_wrong.py')
+
 
 
 # Hàm lấy số dư tài khoản
@@ -520,30 +550,33 @@ def money_transfer(sender:str, receiver:str, transfer_amount:int):
     df.loc[receiver, 'Balance'] += transfer_amount
     df.to_csv('bank_account.csv', index=False)
 
-# Form chuyển tiền
+# Form tạo yêu cầu chuyển tiền
 def money_transfer_form():
+    text = st.session_state.text 
     stkc = st.session_state.receiver_num
     tien_ckc = st.session_state.transfer_amount
+    
     with st.form('form_chuyen_khoan', clear_on_submit=False):
-        stk = st.text_input('Số tài khoản cần chuyển', value=stkc, max_chars=8, placeholder='Nhập số tài khoản người nhận')        
-        tien_ck = st.number_input('Số tiền cần chuyển', value=tien_ckc, max_value=500000000, step=100000, placeholder='Nhập số tiền cần chuyển', format= '%u')
-        st.write('Chuyển khoản ít nhất 10.000 đồng và nhiều nhất 500.000.000 đồng trong một lần chuyển')
-        noi_dung = st.text_input('Nội dung', max_chars= 99, placeholder='Nhập nội dung chuyển khoản')
-        if st.form_submit_button('Chuyển khoản'):
+        stk = st.text_input(text['tf_lbl_acc'], value=stkc, max_chars=8, placeholder=text['tf_placeholder_acc'])        
+        tien_ck = st.number_input(text['tf_lbl_amount'], value=tien_ckc, max_value=500000000, step=100000, placeholder=text['tf_placeholder_amount'], format='%u')
+        st.write(text['tf_hint_limit'])
+        noi_dung = st.text_input(text['tf_lbl_msg'], max_chars=99, placeholder=text['tf_placeholder_msg'])
+        
+        if st.form_submit_button(text['tf_btn_submit']):
             if stk == '':
-                st.error('Số tài khoản không được bỏ trống')
+                st.error(text['tf_err_acc_empty'])
             elif stk == st.session_state.acc_num:
-                st.error('Đây là số tài khoản của quý khách, vui lòng điền số tài khoản khác')
+                st.error(text['tf_err_same_acc'])
             elif tien_ck < 10000:
-                st.error('Số tiền chuyển không được nhỏ hơn 10.000 đồng')
+                st.error(text['tf_err_min_amount'])
             elif noi_dung == '':
-                st.error('Nội dung không được bỏ trống')
+                st.error(text['tf_err_msg_empty'])
             else:
                 match transfer_check(stk, tien_ck):
                     case 0:
-                        st.error('Không tìm thấy tài khoản')
+                        st.error(text['tf_err_not_found'])
                     case 1:
-                        st.error('Không đủ tiền để chuyển')
+                        st.error(text['tf_err_insufficient'])
                     case 2:
                         st.session_state.previous_page.append(st.session_state.current_page)
                         st.session_state.receiver_num = stk
@@ -551,8 +584,47 @@ def money_transfer_form():
                         st.session_state.transfer_state = 1
                         st.switch_page('pages/transfer_rehearsal.py')
 
-# Hàm chuyển số tiền từ số thành chữ
+# Hàm chính chuyển số tiền thành chữ (Tự động nhận diện Tiếng Việt / Tiếng Anh)
 def doc_so_tien(n):
+    # ==============================================================================
+    # TRƯỜNG HỢP 1: ĐỌC TIẾNG ANH
+    # ==============================================================================
+    if st.session_state.get('lang') == 'en':
+        if n == 0:
+            return "Zero Vietnamese Dong"
+        
+        ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", 
+                "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"]
+        tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"]
+        thousands = ["", "Thousand", "Million", "Billion"]
+
+        def convert_three_digits_en(num):
+            res = ""
+            hundred = num // 100
+            rem = num % 100
+            if hundred > 0:
+                res += ones[hundred] + " Hundred "
+            if rem > 0:
+                if rem < 20:
+                    res += ones[rem]
+                else:
+                    res += tens[rem // 10] + (" " + ones[rem % 10] if rem % 10 > 0 else "")
+            return res.strip()
+
+        res_words = ""
+        curr_idx = 0
+        temp_n = n
+        while temp_n > 0:
+            if temp_n % 1000 != 0:
+                res_words = convert_three_digits_en(temp_n % 1000) + " " + thousands[curr_idx] + " " + res_words
+            temp_n //= 1000
+            curr_idx += 1
+            
+        return res_words.strip() + " Vietnamese Dong"
+
+    # ==============================================================================
+    # TRƯỜNG HỢP 2: ĐỌC TIẾNG VIỆT
+    # ==============================================================================
     if n == 0:
         return "Không đồng"
     
@@ -570,7 +642,6 @@ def doc_so_tien(n):
         else:    
             ket_qua += f" {chu_so[tram]} trăm"
 
-            
         if chuc > 1:
             ket_qua += f" {chu_so[chuc]} mươi"
         elif chuc == 1:
@@ -590,10 +661,11 @@ def doc_so_tien(n):
 
     chuoi_tien = ""
     vi_tri = 0
+    temp_n_vi = n
     
-    while n > 0:
-        so_phan_chia = n % 1000
-        n = n // 1000
+    while temp_n_vi > 0:
+        so_phan_chia = temp_n_vi % 1000
+        temp_n_vi = temp_n_vi // 1000
         
         if so_phan_chia > 0:
             chuoi_3_so = doc_3_so(so_phan_chia)
@@ -605,34 +677,49 @@ def doc_so_tien(n):
     
     return chuoi_tien.capitalize() + " đồng"
 
+
 # Form xác nhận chuyển tiền
 def transfer_rehearsal():
+    text = st.session_state.text 
+    
     with st.form('form_kiem_tra_ck', clear_on_submit=True):
-        st.write(f'Số tiền chuyển khoản: **:green[{format(st.session_state.transfer_amount, ',')} VNĐ]**')
-        st.write(f'Số tiền bằng chữ: **:green[{doc_so_tien(st.session_state.transfer_amount)}]**')
-        st.write(f'Người gửi: **:green[{df.loc[st.session_state.acc_num, 'Name']}]**')
-        st.write(f'Số tài khoản: **:green[{st.session_state.acc_num}]**')
-        st.write(f'Người nhận: **:green[{df.loc[st.session_state.receiver_num, 'Name']}]**')
-        st.write(f'Số tài khoản: **:green[{st.session_state.receiver_num}]**')
-        mat_khau = st.text_input('Mật khẩu', type='password', max_chars=24, placeholder='Nhập lại mật khẩu để xác nhận chuyển khoản')
-        if st.form_submit_button('Xác nhận chuyển tiền'):
+        # Định dạng dấu phẩy phân tách hàng nghìn cho số tiền
+        formatted_money = format(st.session_state.transfer_amount, ',')
+        
+        # In các thông tin biên lai
+        st.write(text['rh_amount'].format(formatted_money))
+        st.write(text['rh_words'].format(doc_so_tien(st.session_state.transfer_amount)))
+        st.write(text['rh_sender'].format(df.loc[st.session_state.acc_num, 'Name']))
+        st.write(text['rh_sender_acc'].format(st.session_state.acc_num))
+        st.write(text['rh_receiver'].format(df.loc[st.session_state.receiver_num, 'Name']))
+        st.write(text['rh_receiver_acc'].format(st.session_state.receiver_num))
+        
+        # Ô nhập mật khẩu để xác thực giao dịch
+        mat_khau = st.text_input(text['rh_lbl_pass'], type='password', max_chars=24, placeholder=text['rh_placeholder_pass'])
+        
+        if st.form_submit_button(text['rh_btn_submit']):
             if mat_khau == '':
-                st.error('Vui lòng điền mật khẩu')
+                st.error(text['rh_err_pass_empty'])
             else:
                 match login_check(st.session_state.acc_num, mat_khau):
                     case 1:
-                        st.session_state.dem_sai_mk += 1
-                        st.error(f'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{3-st.session_state.dem_sai_mk}]** lần nữa')
+                        # Đồng bộ đếm lỗi về wrong_password_count của hệ thống
+                        st.session_state.wrong_password_count += 1
+                        remaining_attempts = 3 - st.session_state.wrong_password_count
+                        st.error(text['rh_err_wrong_pass'].format(remaining_attempts))
                     case 2:
+                        # Thực hiện lệnh chuyển tiền thực tế
                         money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
                         st.session_state.receiver_num = ''
                         st.session_state.transfer_amount = 0
-                        st.session_state.dem_sai_mk = 0
+                        st.session_state.wrong_password_count = 0
                         st.session_state.transfer_state = 2
                         st.switch_page('pages/transfer_success.py')
-    if st.session_state.dem_sai_mk > 2:
+                        
+    # Nếu nhập sai quá 3 lần, tự động reset thông tin giao dịch và khóa/chuyển trang báo lỗi
+    if st.session_state.wrong_password_count > 2:
         st.session_state.receiver_num = ''
         st.session_state.transfer_amount = 0     
-        st.session_state.dem_sai_mk = 0
+        st.session_state.wrong_password_count = 0
         st.session_state.transfer_state = 0
         st.switch_page('pages/password_wrong.py')
