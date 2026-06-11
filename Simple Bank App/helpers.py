@@ -50,7 +50,7 @@ def embed_chatbot():
     bg_color = "rgba(30, 20, 60, 0.95)" if is_open else "transparent"
     box_shadow = "0px 8px 32px rgba(0, 0, 0, 0.5)" if is_open else "none"
     border_style = "1px solid rgba(255, 255, 255, 0.15)" if is_open else "none"
-    padding_style = "15px" if is_open else "0px"
+    padding_style = "10px" if is_open else "0px"
     width_style = "360px" if is_open else "auto"
 
     # 5. Bơm CSS cố định vị trí (Fix lỗi giật lag giao diện)
@@ -59,7 +59,7 @@ def embed_chatbot():
         <style>
         div[data-testid="stVerticalBlock"] > div:has(div.custom-floating-chat) {{
             position: fixed !important;
-            bottom: 0px !important;
+            bottom: 70px !important;
             right: 0px !important;
             width: {width_style} !important;
             background-color: {bg_color} !important;
