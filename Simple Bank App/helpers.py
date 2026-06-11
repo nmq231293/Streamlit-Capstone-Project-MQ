@@ -23,44 +23,44 @@ st.markdown(
 
 # Chương trình chatbot trợ lý ảo:
 def embed_chatbot():
-    
     text = st.session_state.text
     
+    # 1. Cập nhật System Prompt cho OpenAI (Giữ nguyên logic hôm qua)
     SYSTEM_PROMPT = text['system_prompt']
-    system_instruction = {
-        "role": "system", 
-        "content": SYSTEM_PROMPT
-    }
-
-
+    system_instruction = {"role": "system", "content": SYSTEM_PROMPT}
 
     if "messages" not in st.session_state:
         st.session_state.messages = [system_instruction]
     else:
         if len(st.session_state.messages) > 0 and st.session_state.messages[0]["role"] == "system":
             st.session_state.messages[0]["content"] = SYSTEM_PROMPT
-        else:
-            st.session_state.messages.insert(0, system_instruction)
-                
+    
     if "chat_open" not in st.session_state:
         st.session_state.chat_open = False
 
+    # 2. Định nghĩa hàm Callback xử lý việc Đóng/Mở chat nhanh gọn
+    def toggle_chat():
+        st.session_state.chat_open = not st.session_state.chat_open
+
+    # 3. Tạo nút bấm trước để lấy label động dựa trên trạng thái
+    button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
+
+    # 4. Tính toán thông số CSS dựa trên trạng thái ĐÃ ĐƯỢC CHUẨN HÓA
     is_open = st.session_state.chat_open
-    
-    # Định hình các thông số CSS tùy theo trạng thái đóng/mở của chatbot
     bg_color = "rgba(30, 20, 60, 0.95)" if is_open else "transparent"
     box_shadow = "0px 8px 32px rgba(0, 0, 0, 0.5)" if is_open else "none"
     border_style = "1px solid rgba(255, 255, 255, 0.15)" if is_open else "none"
     padding_style = "15px" if is_open else "0px"
     width_style = "360px" if is_open else "auto"
 
+    # 5. Bơm CSS cố định vị trí (Fix lỗi giật lag giao diện)
     st.markdown(
         f"""
         <style>
         div[data-testid="stVerticalBlock"] > div:has(div.custom-floating-chat) {{
             position: fixed !important;
-            bottom: 25px !important;
-            right: 25px !important;
+            bottom: 0px !important;
+            right: 0px !important;
             width: {width_style} !important;
             background-color: {bg_color} !important;
             border-radius: 16px !important;
@@ -68,10 +68,9 @@ def embed_chatbot():
             padding: {padding_style} !important;
             z-index: 999999 !important;
             border: {border_style} !important;
-            backdrop-filter: blur(8px) !not-essential;
+            backdrop-filter: blur(8px);
             transition: all 0.2s ease-in-out;
         }}
-
         .chat-title-text {{
             color: #e2e8f0 !important;
             font-weight: bold !important;
@@ -79,7 +78,6 @@ def embed_chatbot():
             font-size: 14px !important;
             letter-spacing: 0.5px;
         }}
-
         .floating-btn-container {{
             display: flex;
             justify-content: flex-end;
@@ -90,15 +88,13 @@ def embed_chatbot():
         unsafe_allow_html=True
     )
 
+    # 6. Render giao diện khung chat
     chat_wrapper = st.container()
-
     with chat_wrapper:
         st.markdown('<div class="custom-floating-chat"></div>', unsafe_allow_html=True)
         
         if st.session_state.chat_open:
-
             st.markdown(f'**:red[🤖 {text["AI_chatbot_title"]}]**')
-            
             chat_history_box = st.container(height=300)
             
             with chat_history_box:
@@ -113,6 +109,7 @@ def embed_chatbot():
                         st.write(f':green[{user_query.capitalize()}]')
                 st.session_state.messages.append({"role": "user", "content": f':green[{user_query.capitalize()}]'})
 
+                from openai import OpenAI
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 with chat_history_box:
                     with st.chat_message("assistant"):
@@ -135,33 +132,15 @@ def embed_chatbot():
                 
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
 
+        # 7. Render nút bấm ở cuối container nhưng đã được xử lý callback từ trước
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
-        button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
-        if st.button(button_label, key="toggle_chat_btn", type="primary"):
-            st.session_state.chat_open = not st.session_state.chat_open
-            st.rerun()
+        # Sử dụng on_click giúp trạng thái thay đổi ngay trước khi file rerun, không cần gọi st.rerun() thủ công
+        st.button(button_label, key="toggle_chat_btn", type="primary", on_click=toggle_chat)
         st.markdown('</div>', unsafe_allow_html=True)
 
 
 
-# Khởi tạo đọc dữ liệu bank accounts (cũ)
-
-# account_file = 'Simple Bank App/bank_account.csv'
-
-# if os.path.exists(account_file):
-#     df = pd.read_csv(account_file, dtype={'ID':str,'Phone':str,'Balance':int}, index_col='ID')
-# else:
-#     df = pd.DataFrame(columns= ['ID', 'Name', 'DoB', 'Phone', 'Email', 'Password', 'Balance'])
-#     df = df.astype({
-#         'ID':'string',
-#         'Name':'string',
-#         'DoB':'string',
-#         'Phone':'string',
-#         'Email':'string',
-#         'Password':'string',
-#         'Balance':'int64'
-#         })
-#     df.set_index('ID', inplace=True)
+# Khởi tạo đọc dữ liệu bank accounts
 
 # Hàm lấy secrets để đọc file google sheet
 def get_gspread_client():
