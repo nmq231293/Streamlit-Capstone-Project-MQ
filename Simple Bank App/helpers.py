@@ -363,7 +363,8 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
 
 # Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
 def process_temp_DoB():
-    st.session_state.pr_temp_DoB = st.session_state.temp_DoB.strftime('%d/%m/%Y').replace('/', '')
+    temp_DoB = st.session_state.temp_DoB
+    st.session_state.pr_temp_DoB = temp_DoB.strftime('%d/%m/%Y').replace('/', '')
 
 # Form đăng ký tài khoản mới
 def signup_form():
@@ -516,38 +517,7 @@ def login_form():
     if st.session_state.wrong_password_count > 2:
         st.session_state.wrong_password_count = 0                            
         st.switch_page('pages/password_wrong.py')
-        
-# Nhóm chức năng cài đặt
 
-# Hộp thoại cài đặt
-# @st.dialog('Cài đặt')
-# def account_settings_dialog():
-#     if st.button('**:green[Tài khoản]**', icon='🙎🏻‍♂️'):
-#         st.switch_page('pages/account_settings.py')
-#     if st.button('**:red[Đăng xuất]**', icon='🔑'):
-#         st.session_state.login_state = False
-#         st.session_state.login_noti = False
-#         st.session_state.acc_num = ''
-#         st.session_state.receiver_num = ''
-#         st.session_state.transfer_amount = 0
-#         st.session_state.dem_sai_mk = 0
-#         st.session_state.transfer_state = 0
-#         st.session_state.signup_state = False
-#         st.session_state.available_id_list = []
-#         st.session_state.previous_page.append(st.session_state.current_page)
-#         st.switch_page('pages/home.py')
-
-# Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
-def switch_page_check(page_path, page_trace = True):
-    check = True
-    for i in ['login.py','signup.py','transfer.py','transfer_rehearsal.py']:
-        if i in str(st.session_state.current_page):
-            check = False
-            switch_page_confirm(page_path, page_trace)
-    if check:
-        if not page_trace:
-            st.session_state.previous_page.pop(-1)
-        st.switch_page(page_path)
 
 # Hàm lấy số dư tài khoản
 def available_balance(stk:str):
