@@ -15,27 +15,22 @@ if "login_state" not in st.session_state:
     
     if url_token:
         try:
-            # Lớp 1: Dùng Secret Key cấu hình trong st.secrets để giải mã Token trên URL
             auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
             stk_decrypted = auth_serializer.loads(url_token)
             
-            # Kiểm tra tài khoản có tồn tại vật lý trên hệ thống database không
             if stk_decrypted in df.index:
-                # Đọc chuỗi Session đang lưu trên Google Sheet của tài khoản này
                 session_value = str(df.loc[stk_decrypted, 'Session'])
                 
                 if "|" in session_value:
-                    sheet_time, sheet_ip = session_value.split("|")
+                    # Tách chuỗi: lấy mốc thời gian và thông tin trình duyệt đã lưu trên Sheet
+                    sheet_time, sheet_browser = session_value.split("|", 1) # Sử dụng split("|", 1) để tránh lỗi nếu chuỗi trình duyệt có dấu |
                     
-                    # Sửa lại dòng lấy IP hiện tại khi người dùng bấm F5 trên Cloud
-                    raw_current_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1")
-                    current_ip = raw_current_ip.split(",")[0].strip() # Bóc tách IP gốc
-                    
+                    # Lấy thông tin trình duyệt hiện thời của thiết bị đang F5
+                    current_browser = st.context.headers.get("User-Agent", "UnknownBrowser")
                     CURRENT_TIME = time.time()
                     
-                    # Kiểm tra chéo điều kiện bảo mật
-                    if (CURRENT_TIME - float(sheet_time) < 3600) and (current_ip == sheet_ip):
-                        # Khôi phục trạng thái hợp lệ...
+                    # KIỂM TRA CHÉO: Thời gian < 1 tiếng VÀ Thông tin trình duyệt phải TRÙNG KHỚP 100%
+                    if (CURRENT_TIME - float(sheet_time) < 3600) and (current_browser == sheet_browser):
                         st.session_state.login_state = True
                         st.session_state.acc_num = stk_decrypted
                         st.session_state.acc_name = df.loc[stk_decrypted, 'Name']
@@ -47,7 +42,7 @@ if "login_state" not in st.session_state:
                             case 'viewer': st.session_state.power_level = 1
                             case _: st.session_state.power_level = 0
                     else:
-                        # Phát hiện sai lệch IP (Kẻ xấu chiếm quyền) hoặc link hết hạn -> Hủy phiên
+                        # Sai trình duyệt (Kẻ xấu copy link sang thiết bị khác) hoặc hết hạn -> Đá văng
                         st.query_params.clear()
                         st.session_state.login_state = False
                 else:
@@ -58,7 +53,6 @@ if "login_state" not in st.session_state:
                 st.session_state.login_state = False
                 
         except BadSignature:
-            # URL bị chỉnh sửa bậy bạ hoặc khóa bí mật sai lệch -> Làm sạch thanh URL
             st.query_params.clear()
             st.session_state.login_state = False
     else:

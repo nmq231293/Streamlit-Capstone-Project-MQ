@@ -525,21 +525,17 @@ def login_form():
                         # 1. Lấy mốc thời gian hiện tại và IP thực tế của người dùng
                         login_timestamp = str(int(time.time()))
                         
-                        # Lấy chuỗi IP và chỉ trích xuất phần tử IP gốc đầu tiên trước dấu phẩy
-                        raw_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1")
-                        user_ip = raw_ip.split(",")[0].strip() # Đảm bảo lấy đúng IP thật của thiết bị
-
-                        # Tiến hành lưu vào Google Sheet như bình thường
-                        df.loc[stk, 'Session'] = f"{login_timestamp}|{user_ip}"
-                        work_sheet_update()
-
+                        # Lấy thông tin hệ điều hành + trình duyệt của bạn
+                        user_browser = st.context.headers.get("User-Agent", "UnknownBrowser")
                         
-                        # 3. Mã hóa số tài khoản (ID) thành chuỗi ký tự Token an toàn gọn gàng
+                        # Lưu chuỗi kết hợp (Thời gian|Thông tin trình duyệt) lên Google Sheet
+                        df.loc[stk, 'Session'] = f"{login_timestamp}|{user_browser}"
+                        work_sheet_update()
+                        
+                        # Mã hóa token lên URL như cũ
                         from itsdangerous import URLSafeSerializer
                         auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
                         secure_token = auth_serializer.dumps(stk)
-                        
-                        # 4. Đính token mã hóa này lên thanh địa chỉ URL
                         st.query_params["auth_token"] = secure_token
                         
                         match stk:
