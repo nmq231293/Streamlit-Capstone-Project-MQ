@@ -551,7 +551,7 @@ def login_form():
         st.session_state.wrong_password_count = 0                            
         st.switch_page('pages/password_wrong.py')
 
-
+# Hàm đăng xuất:
 def logout():
     # Trả giá trị phiên làm việc trên Google Sheet về '0' để vô hiệu hóa Token cũ vĩnh viễn
     df.loc[st.session_state.acc_num, 'Session'] = '0'
