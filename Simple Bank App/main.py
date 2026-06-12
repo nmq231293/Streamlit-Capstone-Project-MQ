@@ -1,10 +1,71 @@
 import streamlit as st
-from helpers import switch_page_check, embed_chatbot, on_language_change
+import time
+from itsdangerous import URLSafeSerializer, BadSignature
+from helpers import df, work_sheet_update, on_language_change, switch_page_check, embed_chatbot, logout
 from dictionary_data import DICTIONARY
 
-
+# Quy định bắt buộc: Thiết lập cấu hình trang nằm ở dòng đầu tiên
 st.set_page_config(layout='wide')
 
+# ==============================================================================
+# BỘ QUÉT KHÔI PHỤC ĐĂNG NHẬP THEO LUỒNG BẢO MẬT BẠN GỢI Ý
+# ==============================================================================
+if "login_state" not in st.session_state:
+    url_token = st.query_params.get("auth_token", None)
+    
+    if url_token:
+        try:
+            # Lớp 1: Dùng Secret Key cấu hình trong st.secrets để giải mã Token trên URL
+            auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
+            stk_decrypted = auth_serializer.loads(url_token)
+            
+            # Kiểm tra tài khoản có tồn tại vật lý trên hệ thống database không
+            if stk_decrypted in df.index:
+                # Đọc chuỗi Session đang lưu trên Google Sheet của tài khoản này
+                session_value = str(df.loc[stk_decrypted, 'Session'])
+                
+                if "|" in session_value:
+                    sheet_time, sheet_ip = session_value.split("|")
+                    
+                    # Lấy IP mạng hiện thời của thiết bị đang cố reload trang
+                    current_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1").split(",")[0].strip()
+                    CURRENT_TIME = time.time()
+                    
+                    # Lớp 2 & 3: Kiểm tra chéo điều kiện Thời gian (< 1 tiếng) VÀ TRÙNG KHỚP IP
+                    if (CURRENT_TIME - float(sheet_time) < 3600) and (current_ip == sheet_ip):
+                        # Khôi phục trạng thái đăng nhập hoàn chỉnh sau cú F5
+                        st.session_state.login_state = True
+                        st.session_state.acc_num = stk_decrypted
+                        st.session_state.acc_name = df.loc[stk_decrypted, 'Name']
+                        st.session_state.last_activity_time = CURRENT_TIME
+                        
+                        match stk_decrypted:
+                            case 'creator': st.session_state.power_level = 3
+                            case 'tester': st.session_state.power_level = 2
+                            case 'viewer': st.session_state.power_level = 1
+                            case _: st.session_state.power_level = 0
+                    else:
+                        # Phát hiện sai lệch IP (Kẻ xấu chiếm quyền) hoặc link hết hạn -> Hủy phiên
+                        st.query_params.clear()
+                        st.session_state.login_state = False
+                else:
+                    st.query_params.clear()
+                    st.session_state.login_state = False
+            else:
+                st.query_params.clear()
+                st.session_state.login_state = False
+                
+        except BadSignature:
+            # URL bị chỉnh sửa bậy bạ hoặc khóa bí mật sai lệch -> Làm sạch thanh URL
+            st.query_params.clear()
+            st.session_state.login_state = False
+    else:
+        st.session_state.login_state = False
+
+# Đảm bảo URL luôn giữ Token này khi người dùng chuyển qua lại các menu navbar mặc định
+if st.session_state.get("login_state") and "auth_token" not in st.query_params:
+    auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
+    st.query_params["auth_token"] = auth_serializer.dumps(st.session_state.acc_num)
 
 
 if "lang" not in st.session_state:
@@ -133,20 +194,6 @@ with col4:
                 st.session_state.previous_page.append(st.session_state.current_page)
                 st.switch_page('pages/account_settings.py')
             elif settings_menu == f'🔑 :red[{st.session_state.text["logout_button"]}]':
-                st.session_state.login_state = False
-                st.session_state.login_noti = False
-                st.session_state.acc_num = ''
-                st.session_state.acc_name = ''
-                st.session_state.power_level = 0
-                st.session_state.receiver_num = ''
-                st.session_state.transfer_amount = 0
-                st.session_state.wrong_password_count = 0
-                st.session_state.transfer_state = 0
-                st.session_state.signup_state = False
-                st.session_state.available_id_list = []
-                st.session_state.logout_state = True
-                if st.session_state.current_page != 'pages/home.py':
-                    st.session_state.previous_page.append(st.session_state.current_page)
-                    st.switch_page('pages/home.py')
+                logout()
 
 pg.run()

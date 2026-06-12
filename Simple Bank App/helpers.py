@@ -1,6 +1,7 @@
 import streamlit as st 
 import gspread
 import pandas as pd
+import time
 import os
 import re
 import random
@@ -169,7 +170,8 @@ df = df.astype({
                 'Phone' : 'str',
                 'Email' : 'str',
                 'Password' : 'str',
-                'Balance' : 'int64'
+                'Balance' : 'int64',
+                'Session' : 'str'
                 })
 
 # Xử lý dataframe
@@ -516,6 +518,26 @@ def login_form():
                         st.session_state.login_noti = True
                         st.session_state.acc_name = df.loc[stk, 'Name']
                         st.session_state.acc_num = stk
+                        
+                        st.session_state.last_activity_time = time.time()
+                        
+                        # --- THỰC HIỆN Ý TƯỞNG BẢO MẬT CỦA BẠN ---
+                        # 1. Lấy mốc thời gian hiện tại và IP thực tế của người dùng
+                        login_timestamp = str(int(time.time()))
+                        user_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1").split(",")[0].strip()
+                        
+                        # 2. Lưu chuỗi kết hợp (Thời gian|IP) vào dataframe và cập nhật lên Google Sheet liền
+                        df.loc[stk, 'Session'] = f"{login_timestamp}|{user_ip}"
+                        work_sheet_update()
+                        
+                        # 3. Mã hóa số tài khoản (ID) thành chuỗi ký tự Token an toàn gọn gàng
+                        from itsdangerous import URLSafeSerializer
+                        auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
+                        secure_token = auth_serializer.dumps(stk)
+                        
+                        # 4. Đính token mã hóa này lên thanh địa chỉ URL
+                        st.query_params["auth_token"] = secure_token
+                        
                         match stk:
                             case 'creator':
                                 st.session_state.power_level = 3
@@ -529,6 +551,29 @@ def login_form():
         st.session_state.wrong_password_count = 0                            
         st.switch_page('pages/password_wrong.py')
 
+
+def logout():
+    # Trả giá trị phiên làm việc trên Google Sheet về '0' để vô hiệu hóa Token cũ vĩnh viễn
+    df.loc[st.session_state.acc_num, 'Session'] = '0'
+    work_sheet_update()
+    
+    st.session_state.login_state = False
+    st.session_state.login_noti = False
+    st.session_state.acc_num = ''
+    st.session_state.acc_name = ''
+    st.session_state.power_level = 0
+    st.session_state.receiver_num = ''
+    st.session_state.transfer_amount = 0
+    st.session_state.wrong_password_count = 0
+    st.session_state.transfer_state = 0
+    st.session_state.signup_state = False
+    st.session_state.available_id_list = []
+    st.session_state.logout_state = True
+    # Làm sạch hoàn toàn thanh URL và điều hướng về trang chủ
+    st.query_params.clear()
+    if st.session_state.current_page != 'pages/home.py':
+        st.session_state.previous_page.append(st.session_state.current_page)
+        st.switch_page('pages/home.py')    
 
 
 # Hàm lấy số dư tài khoản
