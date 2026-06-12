@@ -27,13 +27,15 @@ if "login_state" not in st.session_state:
                 if "|" in session_value:
                     sheet_time, sheet_ip = session_value.split("|")
                     
-                    # Lấy IP mạng hiện thời của thiết bị đang cố reload trang
-                    current_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1").split(",")[0].strip()
+                    # Sửa lại dòng lấy IP hiện tại khi người dùng bấm F5 trên Cloud
+                    raw_current_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1")
+                    current_ip = raw_current_ip.split(",")[0].strip() # Bóc tách IP gốc
+                    
                     CURRENT_TIME = time.time()
                     
-                    # Lớp 2 & 3: Kiểm tra chéo điều kiện Thời gian (< 1 tiếng) VÀ TRÙNG KHỚP IP
+                    # Kiểm tra chéo điều kiện bảo mật
                     if (CURRENT_TIME - float(sheet_time) < 3600) and (current_ip == sheet_ip):
-                        # Khôi phục trạng thái đăng nhập hoàn chỉnh sau cú F5
+                        # Khôi phục trạng thái hợp lệ...
                         st.session_state.login_state = True
                         st.session_state.acc_num = stk_decrypted
                         st.session_state.acc_name = df.loc[stk_decrypted, 'Name']

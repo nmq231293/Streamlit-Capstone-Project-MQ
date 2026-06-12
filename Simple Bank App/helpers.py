@@ -524,11 +524,15 @@ def login_form():
                         # --- THỰC HIỆN Ý TƯỞNG BẢO MẬT CỦA BẠN ---
                         # 1. Lấy mốc thời gian hiện tại và IP thực tế của người dùng
                         login_timestamp = str(int(time.time()))
-                        user_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1").split(",")[0].strip()
                         
-                        # 2. Lưu chuỗi kết hợp (Thời gian|IP) vào dataframe và cập nhật lên Google Sheet liền
+                        # Lấy chuỗi IP và chỉ trích xuất phần tử IP gốc đầu tiên trước dấu phẩy
+                        raw_ip = st.context.headers.get("X-Forwarded-For", "127.0.0.1")
+                        user_ip = raw_ip.split(",")[0].strip() # Đảm bảo lấy đúng IP thật của thiết bị
+
+                        # Tiến hành lưu vào Google Sheet như bình thường
                         df.loc[stk, 'Session'] = f"{login_timestamp}|{user_ip}"
                         work_sheet_update()
+
                         
                         # 3. Mã hóa số tài khoản (ID) thành chuỗi ký tự Token an toàn gọn gàng
                         from itsdangerous import URLSafeSerializer
