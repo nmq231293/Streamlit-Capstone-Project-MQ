@@ -224,6 +224,7 @@ def session_expired(reason:str = 'expired'):
         if st.button(f':red[{text["change_password_button"]}]', icon='🔓'):
             df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
             del st.session_state.session_expired
+            del st.session_state.acc_num
             work_sheet_update(worksheet, df)        
             st.query_params.clear()
             st.session_state.password_change_need = True
@@ -236,6 +237,7 @@ def session_expired(reason:str = 'expired'):
         else:
             df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
         del st.session_state.session_expired
+        del st.session_state.acc_num
         work_sheet_update(worksheet, df)
         st.query_params.clear()
         st.session_state.previous_page.append(st.session_state.current_page)
@@ -247,6 +249,7 @@ def session_expired(reason:str = 'expired'):
         else:
             df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
         del st.session_state.session_expired
+        del st.session_state.acc_num
         work_sheet_update(worksheet, df)
         st.query_params.clear()
         st.rerun()
@@ -587,11 +590,13 @@ def login_form():
                         st.session_state.acc_name = df.loc[stk, 'Name']
                         st.session_state.acc_num = stk
                         
-                        st.session_state.last_activity_time = time.time()
+                        CURRENT_TIME = time.time()
+                        st.session_state.last_activity_time = CURRENT_TIME
                         
                         # --- THỰC HIỆN Ý TƯỞNG BẢO MẬT CỦA BẠN ---
                         # 1. Lấy mốc thời gian hiện tại và IP thực tế của người dùng
-                        login_timestamp = str(int(time.time()))
+                        login_timestamp = str(int(CURRENT_TIME))
+                        timestamped_id = f"{login_timestamp}|{stk}"
                         
                         # Lấy thông tin hệ điều hành + trình duyệt của bạn
                         user_browser = st.context.headers.get("User-Agent", "UnknownBrowser")
@@ -608,7 +613,7 @@ def login_form():
                         # Mã hóa token lên URL như cũ
                         from itsdangerous import URLSafeSerializer
                         auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-                        secure_token = auth_serializer.dumps(stk)
+                        secure_token = auth_serializer.dumps(timestamped_id)
                         st.query_params["auth_token"] = secure_token
                         
                         match stk:

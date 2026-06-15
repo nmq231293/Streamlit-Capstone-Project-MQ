@@ -52,7 +52,9 @@ if 'session_expired' in st.session_state:
     if url_token:
         try:
             auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-            stk_decrypted = auth_serializer.loads(url_token)
+            timestamped_id = auth_serializer.loads(url_token)
+            login_timestamp, stk_decrypted = timestamped_id.split("|", 1)
+            
             st.session_state.acc_num = stk_decrypted
             st.session_state.login_state = False
             session_expired(st.session_state.session_expired)
@@ -70,8 +72,9 @@ else:
         if url_token:
             try:
                 auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-                stk_decrypted = auth_serializer.loads(url_token)
-
+                timestamped_id = auth_serializer.loads(url_token)
+                last_activity_time, stk_decrypted = timestamped_id.split("|", 1)
+                
                 if stk_decrypted in df.index:
                     worksheet, df = df_init()
                     session_value = str(df.loc[stk_decrypted, 'Session'])
@@ -87,16 +90,18 @@ else:
                         if current_browser == sheet_browser:
                             CURRENT_TIME = time.time()
                             if CURRENT_TIME - float(sheet_time) <= 3600:
+                                if 'last_activity_time' not in st.session_state:
+                                    st.session_state.last_activity_time = float(last_activity_time)                                
                                 st.session_state.login_state = True
                                 st.session_state.acc_num = stk_decrypted
                                 st.session_state.acc_name = df.loc[stk_decrypted, 'Name']
-                                st.session_state.last_activity_time = CURRENT_TIME
-                                
+
                                 match stk_decrypted:
                                     case 'creator': st.session_state.power_level = 3
                                     case 'tester': st.session_state.power_level = 2
                                     case 'viewer': st.session_state.power_level = 1
                                     case _: st.session_state.power_level = 0
+
                             else:
                                 st.session_state.session_expired = 'expired'
                                 logout('expired')
@@ -127,19 +132,20 @@ else:
 
 # Đảm bảo URL luôn giữ Token này khi người dùng chuyển qua lại các menu navbar mặc định
 if st.session_state.get("login_state"):
-    if "auth_token" not in st.query_params:
-        auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-        st.query_params["auth_token"] = auth_serializer.dumps(st.session_state.acc_num)    
-    
     CURRENT_TIME = time.time()
-    if 'last_activity_time' not in st.session_state:
-        st.session_state.last_activity_time = CURRENT_TIME
-    elif CURRENT_TIME - st.session_state.last_activity_time <= 20:
+    if "auth_token" not in st.query_params:
+        last_activity_timestamp = str(int(CURRENT_TIME))
+        new_timestamped_id = f"{last_activity_timestamp}|{st.session_state.acc_num}"
+        auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
+        st.query_params["auth_token"] = auth_serializer.dumps(new_timestamped_id)
+    if CURRENT_TIME - st.session_state.last_activity_time <= 600:
         st.session_state.last_activity_time = CURRENT_TIME
     else:
         st.session_state.session_expired = 'timeout'
         del st.session_state.last_activity_time
-        logout('timeout')
+        logout('timeout')       
+
+
 
 
 

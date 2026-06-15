@@ -157,9 +157,9 @@ DICTIONARY = {
 
         # --- HỘP THOẠI XÁC NHẬN RỜI TRANG ---
         'dialog_session_expired': 'Phiên đăng nhập hết hạn',
-        'dialog_session_expired_info': 'Phiên đăng nhập của bạn đã hết hạn. Vui lòng đăng nhập lại!',
+        'dialog_session_expired_info': 'Phiên đăng nhập của bạn đã quá thời gian 60 phút. Vui lòng đăng nhập lại!',
         'dialog_session_timeout': 'Quá thời gian chờ',
-        'dialog_session_timeout_info': 'Bạn đã không hoạt động trong hơn 15 phút. Vui lòng đăng nhập lại!',
+        'dialog_session_timeout_info': 'Bạn đã không hoạt động trong hơn 10 phút. Vui lòng đăng nhập lại!',
         'dialog_session_hijacked' : 'Đăng nhập nơi khác',
         'dialog_session_hijacked_info' : 'Tài khoản của bạn đã được đăng nhập trên một thiết bị khác. Nếu không phải là bạn, hãy đổi mật khẩu NGAY!!!',
         'dialog_leave_title': 'Xác nhận rời trang',
@@ -307,9 +307,9 @@ DICTIONARY = {
 
         # --- CONFIRM LEAVE PAGE DIALOG (EN) ---
         'dialog_session_expired' : 'Expired session',
-        'dialog_session_expired_info': 'Your session has expired. Please log in again!',
+        'dialog_session_expired_info': 'Your session has expired after 60 mins of authorization. Please log in again!',
         'dialog_session_timeout': 'Timeout due to inactivity',
-        'dialog_session_timeout_info': 'You were inactive for more than 15 minutes. Please log in again!',
+        'dialog_session_timeout_info': 'You were inactive for more than 10 minutes. Please log in again!',
         'dialog_session_hijacked' : 'Account on other device',
         'dialog_session_hijacked_info' : 'Your account has just been logged in on another device. If it was not you, please change your password NOW!!!',
         'dialog_leave_title': 'Confirm leaving this page',
