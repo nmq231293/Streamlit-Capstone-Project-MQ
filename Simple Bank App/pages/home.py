@@ -3,7 +3,7 @@ from helpers import available_balance
 
 text = st.session_state.text
 
-st.header(f'**:red[{text["home_title"].upper()}]**', width='stretch',text_alignment='left')
+st.header(text["home_title"].upper(), anchor=False)
 
 st.session_state.available_id_list = []
 
@@ -27,8 +27,16 @@ else:
     if st.session_state.login_noti:
         st.success(f'{text["logged_in_noti"]}')
         st.session_state.login_noti = False
-    st.markdown(f'{text["greetings"]}: **:green[{st.session_state.acc_name}]**')
-    st.write(f'{text["available_balance"]}: **:green[{format(available_balance(st.session_state.acc_num), ",")} VNĐ]**')
+    st.markdown(f'{text["greetings"]}: <span class="balance-glow">**{st.session_state.acc_name}**</span>',
+                unsafe_allow_html=True)
+    
+    # Đã bọc con số vào thẻ span có class riêng để CSS kích sáng hacker
+    balance_value = format(available_balance(st.session_state.acc_num), ",")
+    st.markdown(
+        f'{text["available_balance"]}: <span class="balance-glow">**{balance_value} VNĐ**</span>', 
+        unsafe_allow_html=True
+    )
+
 
     col1, col2, col3 = st.columns(3)
     with col1:

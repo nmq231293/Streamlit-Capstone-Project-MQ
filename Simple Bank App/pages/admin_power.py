@@ -5,4 +5,4 @@ if st.session_state.power_level == 0:
     
 text = st.session_state.text
 
-st.header(f'**:red[{text["admin_power_title"].upper()}]**', width='stretch',text_alignment='left')
+st.header(text["admin_power_title"].upper(), anchor=False)

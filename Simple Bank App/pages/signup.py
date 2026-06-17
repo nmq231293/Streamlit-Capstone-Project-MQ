@@ -8,7 +8,8 @@ if st.session_state.login_state == True:
 
 text = st.session_state.text
 
-st.header(f'**:red[{text["signup_title"].upper()}]**', width='stretch',text_alignment='left')
+st.header(text["signup_title"].upper(), anchor=False)
+
 
 signup_form()
 

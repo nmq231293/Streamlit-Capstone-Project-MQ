@@ -6,7 +6,7 @@ if st.session_state.login_state == True:
 
 text = st.session_state.text
 
-st.header(f'**:red[{text["login_title"].upper()}]**', width='stretch',text_alignment='left')
+st.header(text["login_title"].upper(), anchor=False)
 
 login_form()
 if st.button(f'{text['signup_button']}', icon='🔐'):

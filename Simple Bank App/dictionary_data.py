@@ -134,6 +134,9 @@ DICTIONARY = {
         'rh_btn_submit': 'Xác nhận chuyển tiền',
         'rh_err_pass_empty': 'Vui lòng điền mật khẩu',
         'rh_err_wrong_pass': 'Sai mật khẩu. Quý khách sẽ bị chuyển về trang chủ sau **:red[{}]** lần nữa',
+        'rh_err_insufficient': 'Không đủ tiền để chuyển. Vui lòng quay lại trang chuyển khoản.',
+        'rh_transfer_button': 'Quay về trang chuyển khoản',
+        
         # --- SYSTEM PROMPT CHATBOT VI ---
         'system_prompt': '''        
             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
@@ -286,6 +289,8 @@ DICTIONARY = {
         'rh_btn_submit': 'Confirm Transfer',
         'rh_err_pass_empty': 'Please enter your password',
         'rh_err_wrong_pass': 'Incorrect password. You will be redirected to home page after **:red[{}]** more attempts',
+        'rh_err_insufficient': 'Insufficient funds to complete this transfer. Please go back to transfer page.',
+        'rh_transfer_button': 'Back to transfer page',        
 
         # --- SYSTEM PROMPT CHATBOT EN ---
         'system_prompt': '''

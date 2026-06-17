@@ -6,7 +6,7 @@ if st.session_state.login_state == False:
 
 text = st.session_state.text
 
-st.header(f'**:red[{text["transfer_title"].upper()}]**', width='stretch',text_alignment='left')
+st.header(text["transfer_title"].upper(), anchor=False)
 
 if st.session_state.login_state == True:
     st.write(f'{text["available_balance"]}: :green[{format(available_balance(st.session_state.acc_num), ",")} VNĐ]')

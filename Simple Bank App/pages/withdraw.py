@@ -5,4 +5,4 @@ if st.session_state.login_state == False:
 
 text = st.session_state.text
 
-st.header(f'**:red[{text['withdraw_title']}]**', width='stretch',text_alignment='left')
+st.header(text['withdraw_title'], anchor=False)

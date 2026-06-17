@@ -175,18 +175,11 @@ def df_init():
 worksheet, df = df_init()
 
 
-# Hàm callback xử lý riêng cho Ngôn ngữ (Chạy trước khi render lại trang)
-def on_language_change():
-    new_lang = st.session_state["temp_lang_key"]
-
-    st.session_state.lang = new_lang
-    st.query_params["lang"] = new_lang
-
 # CÁC LOẠI HỘP THOẠI:
 # ==============================================================================
 # 1. HỘP THOẠI BÁO ĐÃ ĐĂNG NHẬP NƠI KHÁC HOẶC HẾT PHIÊN ĐĂNG NHẬP
 # ==============================================================================
-@st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium')
+@st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium', dismissible=False)
 def session_expired(reason:str = 'expired'):
     global worksheet, df
     worksheet, df = df_init()
@@ -223,6 +216,7 @@ def session_expired(reason:str = 'expired'):
                 df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
             del st.session_state.session_expired
             del st.session_state.acc_num
+            del st.session_state.auth_token
             work_sheet_update(worksheet, df)
             st.query_params.clear()
             st.session_state.previous_page.append(st.session_state.current_page)
@@ -235,6 +229,7 @@ def session_expired(reason:str = 'expired'):
                 df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
                 del st.session_state.session_expired
                 del st.session_state.acc_num
+                del st.session_state.auth_token
                 work_sheet_update(worksheet, df)        
                 st.query_params.clear()
                 st.session_state.password_change_need = True
@@ -249,6 +244,7 @@ def session_expired(reason:str = 'expired'):
                 df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
             del st.session_state.session_expired
             del st.session_state.acc_num
+            del st.session_state.auth_token
             work_sheet_update(worksheet, df)
             st.query_params.clear()
             st.rerun()
@@ -426,7 +422,9 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                             'Phone':sdt,
                             'Email':email,
                             'Password':matkhau,
-                            'Balance':sodu
+                            'Balance':sodu,
+                            'Session':'0',
+                            'Previous_Session':'0'
                             })
     df.sort_index(inplace=True)
 
@@ -439,6 +437,7 @@ def process_temp_DoB():
 
 # Form đăng ký tài khoản mới
 def signup_form():
+
     text = st.session_state.text
 
     ten = st.text_input(text['su_lbl_name'], value='Nguyễn Văn A', placeholder=text['su_placeholder_required'])
@@ -460,14 +459,40 @@ def signup_form():
             st.info(text['su_info_dob_avail'])
             
     elif len(st.session_state.available_id_list) == 1:
-        stk_modify = st.radio(text['su_radio_single_desc'],
-                    [text['su_radio_single_avail'].format(st.session_state.available_id_list[0])] + [text['su_opt_default'], text['su_opt_change_id']], index=0)
+        stk_modify = st.radio(f':red[{text['su_radio_single_desc']}]',
+                    [text['su_radio_single_avail'].format(f':green[{st.session_state.available_id_list[0]}]')] + [text['su_opt_default'], text['su_opt_change_id']],
+                    index=0, key= 'acc_no')
+        if 'acc_no' in st.session_state:
+            stk = st.session_state.acc_no
+        else:
+            stk = None
                     
     else:
-        stk = st.pills(text['su_pills_multi_desc']
-                            , st.session_state.available_id_list,
-                        )
-        stk_modify = st.radio(text['su_radio_multi_lbl'], [text['su_opt_default'], text['su_opt_change_id']], index=None, label_visibility='hidden')
+        # Lấy danh sách số tài khoản đẹp đang có
+        account_list = st.session_state.available_id_list
+
+        if account_list:
+            st.write("**Chọn một số tài khoản trong danh sách gợi ý:**")
+            if 'acc_no' not in st.session_state:
+                st.session_state.acc_no = None
+            # Chia thành lưới 5 cột để xếp các số tài khoản thẳng hàng nằm ngang như st.pills
+            cols = st.columns(5) 
+            txt_color = ':red['            
+            for idx, acc_no in enumerate(account_list):
+                # Chia đều các số vào các cột tuần hoàn
+                with cols[idx % 5]:
+                    if 'acc_no' in st.session_state:
+                        if acc_no == st.session_state.acc_no:
+                            txt_color = ':green['
+                    # Mỗi số tài khoản biến thành một nút st.button tuyệt đẹp theo CSS main.py của bạn
+                    if st.button(f"{txt_color}{acc_no}]", key=f"acc_{acc_no}"):
+                        st.session_state.acc_no = acc_no
+                        st.rerun()
+                    txt_color = ':red['
+        stk = st.session_state.acc_no
+        st.markdown(f'Quý khách đã chọn: :green[{stk}]')
+
+        stk_modify = st.radio(text['su_radio_multi_lbl'], [text['su_opt_default'], text['su_opt_change_id']], index=None, label_visibility='hidden', key='acc_no')
         st.info(text['su_info_choose_suggest'])
         
     if st.button(text['su_btn_signup']):
@@ -531,7 +556,7 @@ def signup_form():
             if stk == text['su_opt_change_id'] or stk == 'Đổi dãy số khác':           
                 st.rerun()
             if not id_available_check(stkc) or len(stk) < 8:
-                st.session_state.available_id_list = new_id_suggest(stk,28)
+                st.session_state.available_id_list = new_id_suggest(stk,30)
                 if st.session_state.available_id_list == []:
                     st.error(text['su_err_no_avail_id'])
                     form_check = False
@@ -644,6 +669,7 @@ def logout(cause:str = 'manual'):
         # Trả giá trị phiên làm việc trên Google Sheet về '0' để vô hiệu hóa Token cũ vĩnh viễn.
         df.loc[st.session_state.acc_num, 'Session'] = '0'
         work_sheet_update(worksheet, df)
+        
     st.session_state.login_state = False
     st.session_state.login_noti = False
     st.session_state.acc_num = ''
@@ -665,6 +691,7 @@ def logout(cause:str = 'manual'):
             st.switch_page('pages/home.py')       
     else:
         st.query_params['session_expired'] = cause
+        st.session_state.auth_token = st.query_params['auth_token']
         st.session_state.logout_state = False
         st.rerun()
 
@@ -676,8 +703,12 @@ def available_balance(stk:str):
 
 # Hàm kiểm tra chuyển tiền được hay không. KQ trả về 2 là được, 1 là tk ko đủ, 0 là ko tồn tại tài khoản nhận
 def transfer_check(stk:str, tien_ck:int):
+    global worksheet, df
+    
+    worksheet, df = df_init()
+    
     if stk in df.index:
-        if tien_ck <= df.loc[stk, 'Balance']:
+        if tien_ck <= df.loc[st.session_state.acc_num, 'Balance']:
             return 2
         else:
             return 1
@@ -686,10 +717,13 @@ def transfer_check(stk:str, tien_ck:int):
 
 # Hàm chuyển tiền
 def money_transfer(sender:str, receiver:str, transfer_amount:int):
-    global df
+    global worksheet, df
+    
+    worksheet, df = df_init()
+    
     df.loc[sender, 'Balance'] -= transfer_amount
     df.loc[receiver, 'Balance'] += transfer_amount
-    work_sheet_update()
+    work_sheet_update(worksheet, df)
 
 # Form tạo yêu cầu chuyển tiền
 def money_transfer_form():
@@ -701,13 +735,13 @@ def money_transfer_form():
     
     stk = st.text_input(text['tf_lbl_receiver'], value=stkc, max_chars=8, placeholder=text['tf_placeholder_receiver'])
     if stk in df.index:
-        st.write(f':grey[{format(df.loc[stk, 'Name'])}]')
+        st.write(f':blue[{format(df.loc[stk, 'Name'])}]')
         
     tien_ck = st.number_input(text['tf_lbl_amount'], value=tien_ckc, max_value=500000000, step=100000, placeholder=text['tf_placeholder_amount'], format='%u')
     if 100000 <= tien_ck <= 500000000:
-        st.write(f':grey[{format(money_number_to_text(tien_ck))}]')
+        st.write(f':blue[{format(money_number_to_text(tien_ck))}]')
     else:
-        st.write(f":grey[{text['tf_limit_hint']}]")
+        st.write(f":red[{text['tf_limit_hint']}]")
     noi_dung = st.text_input(text['tf_lbl_content'], max_chars=99, placeholder=text['tf_placeholder_content'])
     
     if st.button(text['tf_btn_submit']):
@@ -829,6 +863,8 @@ def money_number_to_text(n):
 
 # Form xác nhận chuyển tiền
 def transfer_rehearsal():
+    global worksheet, df
+    
     text = st.session_state.text 
     
     # Định dạng dấu phẩy phân tách hàng nghìn cho số tiền
@@ -862,7 +898,7 @@ def transfer_rehearsal():
         
         mat_khau = st.text_input(text['rh_lbl_pass'], type='password', max_chars=24, placeholder=text['rh_placeholder_pass'])
         
-        if st.form_submit_button(text['rh_btn_submit']):
+        if st.form_submit_button(f'**:green[{text['rh_btn_submit']}]**'):
             if mat_khau == '':
                 st.error(text['rh_err_pass_empty'])
             else:
@@ -872,12 +908,16 @@ def transfer_rehearsal():
                         remaining_attempts = 3 - st.session_state.wrong_password_count
                         st.error(text['rh_err_wrong_pass'].format(remaining_attempts))
                     case 2:
-                        money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
-                        st.session_state.receiver_num = ''
-                        st.session_state.transfer_amount = 0
-                        st.session_state.wrong_password_count = 0
-                        st.session_state.transfer_state = 2
-                        st.switch_page('pages/transfer_success.py')
+                        if transfer_check(st.session_state.receiver_num, st.session_state.transfer_amount) == 2:
+                            money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
+                            st.session_state.receiver_num = ''
+                            st.session_state.transfer_amount = 0
+                            st.session_state.wrong_password_count = 0
+                            st.session_state.transfer_state = 2
+                            st.switch_page('pages/transfer_success.py')
+                        else:
+                            st.error(text['rh_err_insufficient'])
+                            st.session_state.wrong_password_count = 0                          
                         
     if st.session_state.wrong_password_count > 2:
         st.session_state.receiver_num = ''
