@@ -216,13 +216,13 @@ def get_base64_image(image_path):
 # Tải ảnh lên và mã hóa (Thay 'background.jpg' bằng tên tệp ảnh của bạn)
 # Tệp ảnh này nên để cùng thư mục với file app.py
 try:
-    img_base64 = get_base64_image("Simple Bank App/wallpaper/reynoldbank.jpg")
+    img_base64 = get_base64_image("Simple Bank App/wallpaper/reynoldbank.png")
     
     # Chèn CSS với chuỗi mã hóa Base64
     st.markdown(f"""
         <style>
             [data-testid="stAppViewContainer"] {{
-                background-image: url("data:image/jpg;base64,{img_base64}");
+                background-image: url("data:image/png;base64,{img_base64}");
                 background-size: cover;
                 background-position: center;
                 background-repeat: no-repeat;
@@ -239,39 +239,90 @@ except FileNotFoundError:
 st.markdown(
     """
     <style>
-    # [data-testid="stAppViewContainer"] {
-    #     background-image: url("https://wallpapers.com/images/high/4d-ultra-hd-wide-space-wm74w1lh3izaum4a.webp"); /* Thay URL ảnh của bạn tại đây */
-    #     background-size: cover;          /* Giúp ảnh bao phủ toàn màn hình */
-    #     background-position: center;     /* Căn giữa ảnh nền */
-    #     background-repeat: no-repeat;    /* Không lặp lại ảnh */
-    #     background-attachment: fixed;    /* Cố định nền khi cuộn trang */
-    # }
-    
-    # /* Tùy chọn: Làm nền của phần nội dung hơi mờ để dễ đọc chữ */
-    # [data-testid="stHeader"] {
-    #     background: rgba(0,0,0,0);       /* Ẩn nền trắng mặc định của header */
-    # }
-    /* Định dạng cho tất cả các nút bấm Streamlit thông thường */
+    /* ==============================================================================
+        LỚP 1: ĐỊNH DẠNG MẶC ĐỊNH CHO TẤT CẢ NÚT BẤM (MÀU TÍM NEON CHỦ ĐẠO)
+       ============================================================================== */
     div[data-testid="stButton"] button {
-        background-color: #4ca5af !important; /* Thay bằng màu nền bạn muốn */
-        color: #FFFFFF !important;            /* Thay bằng màu chữ bạn muốn */
-        border-radius: 8px !important;        /* Bo góc nút (nếu muốn) */
-        border: none !important;              /* Xóa viền mặc định */
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+        color: #ffffff !important;               
+        border-radius: 12px !important;          
+        border: 1px solid rgba(255, 255, 255, 0.1) !important; 
+        font-weight: 600 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3) !important; 
+        transition: all 0.3s ease-in-out !important;
     }
     
-    /* Hiệu ứng khi di chuột qua nút (Hover) */
     div[data-testid="stButton"] button:hover {
-        background-color: #45a049 !important; /* Màu nền khi di chuột qua */
-        color: #FFFF00 !important;            /* Màu chữ khi di chuột qua */
+        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%) !important;
+        color: #ffffff !important;               
+        box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5) !important; 
+        transform: translateY(-2px) !important;  
     }
+    
+    /* Nút Chatbot Trợ lý AI */
+    div[data-testid="stButton"] button[py-click*="toggle_chat_btn"] {
+        background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important; 
+        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4) !important;
+    }
+
+    /* Các thành phần giao diện khác của bạn... */
     [data-testid="stWidgetLabel"] p {
-        font-weight: bold;
-        color: #ffaf53 !important;
+        font-weight: 600 !important;
+        color: #cbd5e1 !important;               
+        font-size: 14px !important;
+    }
+    div[data-baseweb="input"], div[data-baseweb="select"] {
+        background-color: rgba(255, 255, 255, 0.08) !important; 
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;  
+        border-radius: 12px !important;                          
+        backdrop-filter: blur(8px) !important;
+    }
+    div[data-baseweb="input"]:focus-within, div[data-baseweb="select"]:focus-within {
+        border-color: #a855f7 !important;                         
+        box-shadow: 0 0 12px rgba(16 Prompt8, 85, 247, 0.5) !important;   
+    }
+        /* ==============================================================================
+        HỆ THỐNG KÍCH SÁNG NEON CHO MÃ MÀU CHỮ CỦA STREAMLIT TRONG DIALOG
+       ============================================================================== */
+    
+    /* 1. Kích sáng màu ĐỎ (:red) thành Đỏ Neon rực rỡ và đổ bóng chữ */
+    div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: rgb(255, 75, 75)"] p,
+    div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: #ff4b4b"] p,
+    div[data-testid="stDialog"] p style[style*="color:red"] {
+        color: #ff3333 !important; /* Đổi sang tông đỏ lửa rực sáng */
+        font-weight: 800 !important;
+        font-size: 15px !important;
+        text-shadow: 0 0 8px rgba(255, 51, 51, 0.6) !important; /* Tạo hiệu ứng chữ phát sáng */
+    }
+
+    /* 2. Kích sáng màu XANH LÁ (:green) thành Xanh Mint phát sáng cực mạnh */
+    div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: rgb(9, 171, 59)"] p,
+    div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: #09ab3b"] p {
+        color: #00ffcc !important; /* Đổi sang màu xanh ngọc Mint Neon cực kỳ bắt mắt */
+        font-weight: 800 !important;
+        font-size: 15px !important;
+        text-shadow: 0 0 8px rgba(0, 255, 204, 0.7) !important; /* Tạo hiệu ứng chữ phát sáng */
+    }
+    
+    /* Điều chỉnh nhẹ để nền nút bên trong Dialog trong suốt hơn, giúp chữ phát sáng nổi lên */
+    div[data-testid="stDialog"] div[data-testid="stForm"] div[data-testid="stButton"] button,
+    div[data-testid="stDialog"] div[data-testid="column"] div[data-testid="stButton"] button {
+        background: rgba(255, 255, 255, 0.05) !important; /* Đổi nền nút thành kính mờ trong suốt */
+        border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        box-shadow: none !important;
+    }
+    div[data-testid="stDialog"] div[data-testid="stForm"] div[data-testid="stButton"] button:hover,
+    div[data-testid="stDialog"] div[data-testid="column"] div[data-testid="stButton"] button:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
 
 st.session_state.current_page = pg._page
 

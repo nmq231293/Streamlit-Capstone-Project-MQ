@@ -11,7 +11,7 @@ if not st.session_state.login_state:
     if st.session_state.logout_state:
         st.success(f'{text["logged_out_noti"]}')
         st.session_state.logout_state = False
-    col1, col2 = st.columns(2)
+    col1, col2 = st.columns([3,1])
     with col1:
         if st.button(f'{text["login_title"]}', icon='🔑'):
             st.session_state.previous_page.append(st.session_state.current_page)

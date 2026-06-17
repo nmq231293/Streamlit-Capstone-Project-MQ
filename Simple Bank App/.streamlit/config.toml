@@ -1,15 +1,14 @@
 [theme]
+base = "dark"
 
-base = "light"
+# Màu nền tối huyền bí tiệp với vùng tối của ảnh
+backgroundColor = "#0d091a"
 
-# Màu nền chính
-backgroundColor = "#170352"
+# Màu nền của các ô nhập liệu dạng kính mờ
+secondaryBackgroundColor = "rgba(255, 255, 255, 0.05)"
 
-# Màu của widget
-secondaryBackgroundColor = "#014589"
+# Màu chủ đạo (Nút chính, thanh trạng thái) màu tím Neon công nghệ
+primaryColor = "#9b5de5"
 
-# Màu nút bấm
-primaryColor = "#b80b02"
-
-# Màu chữ các khung nhập liệu
-textColor = "#ffff00"
+# Màu chữ chính màu trắng bạc để hiển thị sạch sẽ và rõ nét nhất
+textColor = "#f1f5f9"

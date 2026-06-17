@@ -9,37 +9,6 @@ from datetime import date, datetime
 from openai import OpenAI
 from streamlit_float import *
 
-# Tạo màu cho widget label:
-st.markdown(
-    """
-    <style>
-    /* Tùy chọn: Làm nền của phần nội dung hơi mờ để dễ đọc chữ */
-    [data-testid="stHeader"] {
-        background: rgba(0,0,0,0);       /* Ẩn nền trắng mặc định của header */
-    }
-    
-    /* Định dạng cho tất cả các nút bấm Streamlit thông thường */
-    div[data-testid="stButton"] button {
-        background-color: #4ca5af !important; /* Thay bằng màu nền bạn muốn */
-        color: #FFFFFF !important;            /* Thay bằng màu chữ bạn muốn */
-        border-radius: 8px !important;        /* Bo góc nút (nếu muốn) */
-        border: none !important;              /* Xóa viền mặc định */
-    }
-    
-    /* Hiệu ứng khi di chuột qua nút (Hover) */
-    div[data-testid="stButton"] button:hover {
-        background-color: #45a049 !important; /* Màu nền khi di chuột qua */
-        color: #FFFF00 !important;            /* Màu chữ khi di chuột qua */
-    }
-    
-    [data-testid="stWidgetLabel"] p {
-        color: #FF5733 !important; /* Màu cam đỏ */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
 
 # Chương trình chatbot trợ lý ảo:
 def embed_chatbot():
@@ -214,15 +183,13 @@ def on_language_change():
     st.query_params["lang"] = new_lang
 
 # CÁC LOẠI HỘP THOẠI:
-# Hộp thoại báo đã đăng nhập nơi khác hoặc hết phiên đăng nhập:
-
-
-@st.dialog(':red[==================================]')
+# ==============================================================================
+# 1. HỘP THOẠI BÁO ĐÃ ĐĂNG NHẬP NƠI KHÁC HOẶC HẾT PHIÊN ĐĂNG NHẬP
+# ==============================================================================
+@st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium')
 def session_expired(reason:str = 'expired'):
     global worksheet, df
-    
     worksheet, df = df_init()
-    
     text = st.session_state.text
 
     if reason == 'expired':
@@ -235,48 +202,61 @@ def session_expired(reason:str = 'expired'):
         session_expired_dialog_title = text['dialog_session_hijacked']
         session_expired_dialog_text = text['dialog_session_hijacked_info']
         
-    st.header(f'**:red[{'⚠️' + session_expired_dialog_title.upper() + '⚠️'}]**',text_alignment='center')
+    # Tiêu đề cảnh báo chữ to nổi bật
+    st.markdown(f"<h1 style='text-align: center; color: #ff5555; margin-top:0;'>⚠️ {session_expired_dialog_title.upper()} ⚠️</h3>", unsafe_allow_html=True)
     
-    st.markdown(f':orange[{session_expired_dialog_text}]')
+    # Đường kẻ ngăn cách mờ công nghệ thay cho =====
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
     
-    if reason == 'hijacked':
-        if st.button(f':red[{text["change_password_button"]}]', icon='🔓'):
-            df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+    # Nội dung thông báo
+    st.info(session_expired_dialog_text)
+    
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
+
+
+    c1, c2, c3 = st.columns([3,3,2])
+    with c1:    
+        if st.button(f'**:green[{text["to_login_button"]}]**', icon='🔑', key="btn_sess_login"):
+            if reason == 'expired' or reason == 'timeout':
+                df.loc[st.session_state.acc_num, 'Session'] = '0'
+            else:
+                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
             del st.session_state.session_expired
             del st.session_state.acc_num
-            work_sheet_update(worksheet, df)        
+            work_sheet_update(worksheet, df)
             st.query_params.clear()
-            st.session_state.password_change_need = True
             st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/account_settings.py')        
+            st.switch_page('pages/login.py')
     
-    if st.button(f':green[{text["to_login_button"]}]', icon='🔑'):
-        if reason == 'expired' or reason == 'timeout':
-            df.loc[st.session_state.acc_num, 'Session'] = '0'
-        else:
-            df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-        del st.session_state.session_expired
-        del st.session_state.acc_num
-        work_sheet_update(worksheet, df)
-        st.query_params.clear()
-        st.session_state.previous_page.append(st.session_state.current_page)
-        st.switch_page('pages/login.py')
+    # Vùng chứa các nút bấm hành động (Đã gỡ bỏ mã màu lồng chữ để text hiển thị trắng tinh khiết)
+    with c2:
+        if reason == 'hijacked':
+            if st.button(f'**:green[{text["change_password_button"]}]**', icon='🔓', key="btn_hj_change_pass"):
+                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+                del st.session_state.session_expired
+                del st.session_state.acc_num
+                work_sheet_update(worksheet, df)        
+                st.query_params.clear()
+                st.session_state.password_change_need = True
+                st.session_state.previous_page.append(st.session_state.current_page)
+                st.switch_page('pages/account_settings.py')        
     
-    if st.button(f"**:orange[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**", icon= '❗'):
-        if reason == 'expired' or reason == 'timeout':
-            df.loc[st.session_state.acc_num, 'Session'] = '0'
-        else:
-            df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-        del st.session_state.session_expired
-        del st.session_state.acc_num
-        work_sheet_update(worksheet, df)
-        st.query_params.clear()
-        st.rerun()
-        
-    st.header(':red[==================================]')
+    with c3:
+        if st.button(f'**:red[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**', icon='❗', key="btn_sess_stay"):
+            if reason == 'expired' or reason == 'timeout':
+                df.loc[st.session_state.acc_num, 'Session'] = '0'
+            else:
+                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+            del st.session_state.session_expired
+            del st.session_state.acc_num
+            work_sheet_update(worksheet, df)
+            st.query_params.clear()
+            st.rerun()
 
-# Hộp thoại báo khi rời những trang điền form
 
+# ==============================================================================
+# 2. HỘP THOẠI BÁO KHI RỜI NHỮNG TRANG ĐIỀN FORM
+# ==============================================================================
 def switch_page_dialog_title():
     if 'text' in st.session_state:
         result = st.session_state.text.get('dialog_leave_title', 'Xác nhận rời trang')
@@ -284,26 +264,34 @@ def switch_page_dialog_title():
         result = 'Xác nhận rời trang'
     return result
 
-@st.dialog(':orange[==================================]')
+@st.dialog('**:yellow[Thông Báo / Notification]**')
 def switch_page_confirm(page_path, page_trace = True):
-    
-    st.header(f'**:red[{'⚠️' + switch_page_dialog_title().upper() + '⚠️'}]**',text_alignment='center')
-    
     text = st.session_state.text
     
+    st.markdown(f"<h1 style='text-align: center; color: #ff9f43; margin-top:0;'>⚠️ {switch_page_dialog_title().upper()} ⚠️</h3>", unsafe_allow_html=True)
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
     st.warning(text.get('dialog_leave_warning', 'Nếu rời khỏi trang...'))
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
     
-    if st.button(f"**:red[{text.get('dialog_leave_btn', 'Rời khỏi trang này')}]**"):
-        if page_trace:
-            st.session_state.previous_page.append(st.session_state.current_page)
-        else:
-            st.session_state.previous_page.pop(-1)
-        st.switch_page(page_path)
-        
-    if st.button(f"**:green[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**"):
-        st.rerun()
-        
-    st.header(':orange[==================================]')
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        leave_label = text.get('dialog_leave_btn', 'Rời khỏi trang này')
+        # Lồng in đậm ngoài mã màu :red[...] để nét chữ dày và sáng hơn
+        if st.button(f'**:red[{leave_label}]**'):
+            if page_trace:
+                st.session_state.previous_page.append(st.session_state.current_page)
+            else:
+                st.session_state.previous_page.pop(-1)
+            st.switch_page(page_path)
+            
+    with c2:
+        stay_label = text.get('dialog_stay_btn', 'Ở lại trang này')
+        # Lồng in đậm ngoài mã màu :green[...] để nét chữ dày và sáng hơn
+        if st.button(f'**:green[{stay_label}]**'):
+            st.rerun()
+
+
 
 # Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
 def switch_page_check(page_path, page_trace = True):
@@ -587,7 +575,7 @@ def login_form():
         stk = st.text_input(text['lg_lbl_acc'], value=st.session_state.acc_num, max_chars=8, placeholder=text['lg_placeholder_acc'])        
         mat_khau = st.text_input(text['lg_lbl_pass'], type='password', max_chars=24, placeholder=text['lg_placeholder_pass'])
 
-        if st.form_submit_button(text['lg_btn_submit']):
+        if st.form_submit_button(text['lg_btn_submit'], type='primary'):
             if stk == '':
                 st.error(text['lg_err_acc_empty'])
             elif mat_khau == '':
