@@ -5,7 +5,7 @@ from helpers import df, df_init, switch_page_check, embed_chatbot, logout, sessi
 from dictionary_data import DICTIONARY
 import base64
 
-# Quy định bắt buộc: Thiết lập cấu hình trang nằm ở dòng đầu tiên
+
 st.set_page_config(layout='wide')
 
 
@@ -48,7 +48,7 @@ with col4:
 
 
 # ==============================================================================
-# BỘ QUÉT KHÔI PHỤC ĐĂNG NHẬP THEO LUỒNG BẢO MẬT BẠN GỢI Ý
+# BỘ QUÉT KHÔI PHỤC ĐĂNG NHẬP THEO LUỒNG BẢO MẬT
 # ==============================================================================
 if 'auth_token' in st.session_state:
     st.query_params['auth_token'] = st.session_state.auth_token
@@ -158,13 +158,13 @@ if st.session_state.get("login_state"):
         logout('timeout')
 
 
-
-
-
-# st.title(f'**:rainbow[{st.session_state.text["main_title"]}]**', width='stretch', text_alignment='center')
-
+# Gọi chức năng chatbot
 embed_chatbot()
 
+
+# Khởi tạo các trang và danh sách trang
+
+# Định nghĩa biến tên gọi các trang
 home = st.Page('pages/home.py', title=st.session_state.text['home_title'], icon='🏡')
 signup = st.Page('pages/signup.py', title=st.session_state.text['signup_title'], icon='🔐')
 signup_success = st.Page('pages/signup_success.py', title=st.session_state.text['signup_success_title'], icon='🔐')
@@ -182,11 +182,12 @@ password_wrong = st.Page('pages/password_wrong.py', title=st.session_state.text[
 account_settings = st.Page('pages/account_settings.py', title=st.session_state.text['account_settings_title'], icon='⚙️')
 admin_power = st.Page('pages/admin_power.py', title=st.session_state.text['admin_power_title'], icon='👑')
 
+# Đưa các trang vào danh sách điều hướng
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
                     transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
                     re_submit, password_wrong, account_settings, admin_power], position='hidden')
 
-
+# Khởi tạo các biến session_state
 if 'wrong_password_count' not in st.session_state:
     st.session_state.wrong_password_count = 0
 if 'acc_num' not in st.session_state:

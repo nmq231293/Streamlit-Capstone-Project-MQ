@@ -925,3 +925,17 @@ def transfer_rehearsal():
         st.session_state.wrong_password_count = 0
         st.session_state.transfer_state = 0
         st.switch_page('pages/password_wrong.py')
+
+# Form thông tin tài khoản và chỉnh sửa:
+def account_info(stk):
+    
+    text = st.session_state.text
+
+    ten = st.text_input(text['su_lbl_name'], value=st.session_state.acc_name, placeholder=text['su_placeholder_required'])
+    ngay_sinh = st.date_input(text['su_lbl_dob'], value= datetime.today(), min_value= date(1920,1,1), max_value= datetime.today(), format='DD/MM/YYYY', key= 'temp_DoB', on_change=process_temp_DoB)
+    sdt = st.text_input(text['su_lbl_phone'])
+    email = st.text_input(text['su_lbl_email'])
+    mat_khau = st.text_input(text['su_lbl_pass'], type='password', max_chars=24, placeholder=text['su_placeholder_required'])
+    xn_mat_khau = st.text_input(text['su_lbl_confirm_pass'], type='password', max_chars=24, placeholder=text['su_placeholder_required'])
+    sodu = st.number_input(text['su_lbl_balance'], value= 2000000, min_value=500000, max_value=100000000000, step=100000, placeholder=text['su_placeholder_required'], format= '%d')
+    
