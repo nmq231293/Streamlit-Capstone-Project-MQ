@@ -8,6 +8,8 @@ import random
 from datetime import date, datetime
 from openai import OpenAI
 from streamlit_float import *
+import bcrypt
+import secrets
 
 
 # Chương trình chatbot trợ lý ảo:
@@ -160,7 +162,8 @@ def df_init():
                     'Password' : 'str',
                     'Balance' : 'int64',
                     'Session' : 'str',
-                    'Previous_Session' : 'str'
+                    'Previous_Session' : 'str',
+                    'Version' : 'int64'
                     })
 
     # Xử lý dataframe
@@ -181,8 +184,6 @@ worksheet, df = df_init()
 # ==============================================================================
 @st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium', dismissible=False)
 def session_expired(reason:str = 'expired'):
-    global worksheet, df
-    worksheet, df = df_init()
     text = st.session_state.text
 
     if reason == 'expired':
@@ -195,42 +196,38 @@ def session_expired(reason:str = 'expired'):
         session_expired_dialog_title = text['dialog_session_hijacked']
         session_expired_dialog_text = text['dialog_session_hijacked_info']
         
-    # Tiêu đề cảnh báo chữ to nổi bật
     st.markdown(f"<h1 style='text-align: center; color: #ff5555; margin-top:0;'>⚠️ {session_expired_dialog_title.upper()} ⚠️</h3>", unsafe_allow_html=True)
-    
-    # Đường kẻ ngăn cách mờ công nghệ thay cho =====
     st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
-    
-    # Nội dung thông báo
     st.info(session_expired_dialog_text)
-    
     st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
-
 
     c1, c2, c3 = st.columns([3,3,2])
     with c1:    
         if st.button(f'**:green[{text["relogin_button"]}]**', icon='🔑', key="btn_sess_login"):
-            if reason == 'expired' or reason == 'timeout':
-                df.loc[st.session_state.acc_num, 'Session'] = '0'
-            else:
-                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+            def invalidate_session(current_df):
+                if reason == 'expired' or reason == 'timeout':
+                    current_df.loc[st.session_state.acc_num, 'Session'] = '0'
+                else:
+                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+            update_accounts_safely([st.session_state.acc_num], invalidate_session)
+
             del st.session_state.session_expired
             del st.session_state.acc_num
             del st.session_state.auth_token
-            work_sheet_update(worksheet, df)
             st.query_params.clear()
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/login.py')
     
-    # Vùng chứa các nút bấm hành động (Đã gỡ bỏ mã màu lồng chữ để text hiển thị trắng tinh khiết)
     with c2:
         if reason == 'hijacked':
             if st.button(f'**:green[{text["change_password_button"]}]**', icon='🔓', key="btn_hj_change_pass"):
-                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+                def invalidate_previous_session(current_df):
+                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+                update_accounts_safely([st.session_state.acc_num], invalidate_previous_session)
+
                 del st.session_state.session_expired
                 del st.session_state.acc_num
                 del st.session_state.auth_token
-                work_sheet_update(worksheet, df)        
                 st.query_params.clear()
                 st.session_state.password_change_need = True
                 st.session_state.previous_page.append(st.session_state.current_page)
@@ -238,14 +235,16 @@ def session_expired(reason:str = 'expired'):
     
     with c3:
         if st.button(f'**:red[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**', icon='❗', key="btn_sess_stay"):
-            if reason == 'expired' or reason == 'timeout':
-                df.loc[st.session_state.acc_num, 'Session'] = '0'
-            else:
-                df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+            def invalidate_session_stay(current_df):
+                if reason == 'expired' or reason == 'timeout':
+                    current_df.loc[st.session_state.acc_num, 'Session'] = '0'
+                else:
+                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+            update_accounts_safely([st.session_state.acc_num], invalidate_session_stay)
+
             del st.session_state.session_expired
             del st.session_state.acc_num
             del st.session_state.auth_token
-            work_sheet_update(worksheet, df)
             st.query_params.clear()
             st.rerun()
 
@@ -307,6 +306,14 @@ def switch_page_check(page_path, page_trace = True):
 
 
 # Các hàm xử lý dữ liệu nhập form
+
+# Hàm hash mật khẩu mới
+def hash_password(plain_password: str) -> str:
+    return bcrypt.hashpw(plain_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+# Hàm kiểm tra xem 1 chuỗi có phải là bcrypt hash hay không (để phân biệt với password cũ dạng plaintext)
+def is_bcrypt_hash(value: str) -> bool:
+    return isinstance(value, str) and value.startswith(('$2b$', '$2a$', '$2y$')) and len(value) == 60
 
 # Hàm kiểm tra mail
 def validate_email(email):
@@ -395,6 +402,10 @@ def new_id_suggest(init_id:str, suggest_num:int):
     
     return random_good_id
 
+# ==============================================================================
+# CÁC HÀM XUẤT DỮ LIỆU VÀO GOOGLE SHEET
+# ==============================================================================
+
 # Hàm xuất df ra lại google sheet
 def work_sheet_update(worksheet, df = df_init()):
     
@@ -421,7 +432,7 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                             'DoB':ngay_sinh,
                             'Phone':sdt,
                             'Email':email,
-                            'Password':matkhau,
+                            'Password':hash_password(matkhau),
                             'Balance':sodu,
                             'Session':'0',
                             'Previous_Session':'0'
@@ -429,6 +440,71 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     df.sort_index(inplace=True)
 
     work_sheet_update(worksheet, df)
+    
+# Các thông số cho hàm chuyển khoản:
+MAX_RETRY_ATTEMPTS = 5
+RETRY_BASE_DELAY = 0.2  # giây, tăng dần mỗi lần retry (backoff)
+
+# Tạo lỗi khi ghi nhận thay đổi số dư chuyển khoản thất bại:
+class OptimisticLockError(Exception):
+    """Báo hiệu việc ghi thất bại vì version đã bị người khác thay đổi trước."""
+    pass
+
+# Hàm kiểm tra phiên bản dòng để tạo giao dịch:
+def update_accounts_safely(account_ids: list, mutation_function):
+    """
+    Cập nhật 1 hoặc nhiều dòng tài khoản một cách an toàn dùng optimistic locking.
+
+    account_ids: list các ID tài khoản sẽ bị thay đổi (vd: [sender_id, receiver_id])
+    mutation_function: hàm nhận df mới nhất, thực hiện thay đổi TRỰC TIẾP lên df đó
+                        (vd: trừ tiền A, cộng tiền B), không cần return gì.
+
+    Trả về: df mới nhất sau khi ghi thành công.
+    Raise OptimisticLockError nếu thử hết số lần mà vẫn xung đột.
+    """
+    for attempt in range(MAX_RETRY_ATTEMPTS):
+        worksheet, fresh_df = df_init()
+
+        # Ghi nhớ version hiện tại của các dòng liên quan, TRƯỚC khi sửa
+        versions_before = {acc_id: fresh_df.loc[acc_id, 'Version'] for acc_id in account_ids}
+
+        # Áp logic nghiệp vụ (sửa balance, v.v...) lên df mới nhất này
+        mutation_function(fresh_df)
+
+        # Tăng version của các dòng bị sửa lên 1
+        for acc_id in account_ids:
+            fresh_df.loc[acc_id, 'Version'] = versions_before[acc_id] + 1
+
+        # Trước khi ghi thật, đọc lại 1 lần nữa để chắc chắn version vẫn chưa đổi
+        # (Đây là bước "check" cuối cùng ngay sát thời điểm ghi, giảm tối đa race window)
+        _, check_df = df_init()
+        conflict = any(
+            check_df.loc[acc_id, 'Version'] != versions_before[acc_id]
+            for acc_id in account_ids
+        )
+
+        if not conflict:
+            work_sheet_update(worksheet, fresh_df)
+            return fresh_df
+
+        # Có xung đột -> chờ một chút (backoff) rồi thử lại toàn bộ từ đầu
+        time.sleep(RETRY_BASE_DELAY * (attempt + 1))
+
+    raise OptimisticLockError(f"Failed to update accounts {account_ids} after {MAX_RETRY_ATTEMPTS} attempts")
+
+# Hàm chức năng chuyển tiền:
+def money_transfer(sender:str, receiver:str, transfer_amount:int):
+    global worksheet, df
+
+    def apply_transfer(current_df):
+        # Kiểm tra lại số dư trên data MỚI NHẤT (không tin vào số dư đã check trước đó ở UI)
+        if current_df.loc[sender, 'Balance'] < transfer_amount:
+            raise ValueError("INSUFFICIENT_FUNDS")
+        current_df.loc[sender, 'Balance'] -= transfer_amount
+        current_df.loc[receiver, 'Balance'] += transfer_amount
+
+    df = update_accounts_safely([sender, receiver], apply_transfer)
+
 
 # Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
 def process_temp_DoB():
@@ -577,17 +653,35 @@ def signup_form():
             st.error(text['su_err_recheck'])
 
 
-
 # Hàm kiểm tra đăng nhập. KQ trả về 2 là thành công, 1 là sai mật khẩu, 0 là không tồn tại tài khoản
 def login_check(stk:str, mat_khau:str):
-    global df
+    global worksheet, df
     if stk in df.index:
-        if mat_khau == df.loc[stk, 'Password']:
-            return 2
+        stored_password = df.loc[stk, 'Password']
+
+        if is_bcrypt_hash(stored_password):
+            # Tài khoản đã hash -> so sánh bằng bcrypt
+            password_correct = bcrypt.checkpw(mat_khau.encode('utf-8'), stored_password.encode('utf-8'))
         else:
-            return 1
+            # Tài khoản cũ dạng plaintext -> so sánh trực tiếp
+            password_correct = (mat_khau == stored_password)
+            if password_correct:
+                # Đăng nhập đúng -> tự động nâng cấp mật khẩu cũ lên hash ngay lúc này
+                def apply_password_upgrade(current_df):
+                    current_df.loc[stk, 'Password'] = hash_password(mat_khau)
+
+                try:
+                    update_accounts_safely([stk], apply_password_upgrade)
+                except OptimisticLockError:
+                    pass  # Không nâng cấp được lần này thì thôi, lần đăng nhập sau sẽ thử lại
+
+        return 2 if password_correct else 1
     else:
         return 0
+
+def generate_session_token() -> str:
+    """Sinh ra 1 chuỗi ngẫu nhiên an toàn để làm session token"""
+    return secrets.token_hex(32)  # 64 ký tự hex, 256 bit entropy
 
 # Form đăng nhập
 def login_form():
@@ -625,28 +719,17 @@ def login_form():
                         CURRENT_TIME = time.time()
                         st.session_state.last_activity_time = CURRENT_TIME
                         
-                        # --- THỰC HIỆN Ý TƯỞNG BẢO MẬT CỦA BẠN ---
-                        # 1. Lấy mốc thời gian hiện tại và IP thực tế của người dùng
                         login_timestamp = str(int(CURRENT_TIME))
-                        timestamped_id = f"{login_timestamp}|{stk}"
-                        
-                        # Lấy thông tin hệ điều hành + trình duyệt của bạn
-                        user_browser = st.context.headers.get("User-Agent", "UnknownBrowser")
-                        session_value = str(df.loc[stk, 'Session'])
+                        new_session_token = generate_session_token()
 
-                        # Lưu chuỗi kết hợp (Thời gian|Thông tin trình duyệt) lên Google Sheet
-                        if "|" in session_value:
-                            sheet_time, sheet_browser = session_value.split("|", 1) # Sử dụng split("|", 1) để tránh lỗi nếu chuỗi trình duyệt có dấu |
-                            if user_browser != sheet_browser:
-                                df.loc[stk, 'Previous_Session'] = df.loc[stk, 'Session']
-                        df.loc[stk, 'Session'] = f"{login_timestamp}|{user_browser}"
-                        work_sheet_update(worksheet, df)
-                        
-                        # Mã hóa token lên URL như cũ
-                        from itsdangerous import URLSafeSerializer
-                        auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-                        secure_token = auth_serializer.dumps(timestamped_id)
-                        st.query_params["auth_token"] = secure_token
+                        def apply_new_session(current_df):
+                            old_session_value = str(current_df.loc[stk, 'Session'])
+                            if "|" in old_session_value:
+                                current_df.loc[stk, 'Previous_Session'] = old_session_value
+                            current_df.loc[stk, 'Session'] = f"{login_timestamp}|{new_session_token}"
+
+                        update_accounts_safely([stk], apply_new_session)
+                        st.session_state.session_token = new_session_token
                         
                         match stk:
                             case 'creator':
@@ -674,6 +757,7 @@ def logout(cause:str = 'manual'):
     st.session_state.login_noti = False
     st.session_state.acc_num = ''
     st.session_state.acc_name = ''
+    st.session_state.session_token = ''
     st.session_state.power_level = 0
     st.session_state.receiver_num = ''
     st.session_state.transfer_amount = 0
@@ -700,30 +784,6 @@ def logout(cause:str = 'manual'):
 # Hàm lấy số dư tài khoản
 def available_balance(stk:str):
     return df.loc[stk, 'Balance']
-
-# Hàm kiểm tra chuyển tiền được hay không. KQ trả về 2 là được, 1 là tk ko đủ, 0 là ko tồn tại tài khoản nhận
-def transfer_check(stk:str, tien_ck:int):
-    global worksheet, df
-    
-    worksheet, df = df_init()
-    
-    if stk in df.index:
-        if tien_ck <= df.loc[st.session_state.acc_num, 'Balance']:
-            return 2
-        else:
-            return 1
-    else:
-        return 0    
-
-# Hàm chuyển tiền
-def money_transfer(sender:str, receiver:str, transfer_amount:int):
-    global worksheet, df
-    
-    worksheet, df = df_init()
-    
-    df.loc[sender, 'Balance'] -= transfer_amount
-    df.loc[receiver, 'Balance'] += transfer_amount
-    work_sheet_update(worksheet, df)
 
 # Form tạo yêu cầu chuyển tiền
 def money_transfer_form():
@@ -753,19 +813,15 @@ def money_transfer_form():
             st.error(text['tf_err_min_limit'])
         elif noi_dung == '':
             st.error(text['tf_err_content_empty'])
+        elif stk not in df.index:
+            st.error(text['tf_err_not_found'])
         else:
-            match transfer_check(stk, tien_ck):
-                case 0:
-                    st.error(text['tf_err_not_found'])
-                case 1:
-                    st.error(text['tf_err_insufficient'])
-                case 2:
-                    st.session_state.previous_page.append(st.session_state.current_page)
-                    st.session_state.receiver_num = stk
-                    st.session_state.transfer_amount = tien_ck
-                    st.session_state.transfer_state = 1
-                    st.session_state.transfer_content = noi_dung
-                    st.switch_page('pages/transfer_rehearsal.py')
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.session_state.receiver_num = stk
+            st.session_state.transfer_amount = tien_ck
+            st.session_state.transfer_state = 1
+            st.session_state.transfer_content = noi_dung
+            st.switch_page('pages/transfer_rehearsal.py')
 
 # Hàm chính chuyển số tiền thành chữ (Tự động nhận diện Tiếng Việt / Tiếng Anh)
 def money_number_to_text(n):
@@ -908,16 +964,18 @@ def transfer_rehearsal():
                         remaining_attempts = 3 - st.session_state.wrong_password_count
                         st.error(text['rh_err_wrong_pass'].format(remaining_attempts))
                     case 2:
-                        if transfer_check(st.session_state.receiver_num, st.session_state.transfer_amount) == 2:
+                        try:
                             money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
                             st.session_state.receiver_num = ''
                             st.session_state.transfer_amount = 0
                             st.session_state.wrong_password_count = 0
                             st.session_state.transfer_state = 2
                             st.switch_page('pages/transfer_success.py')
-                        else:
+                        except ValueError:
                             st.error(text['rh_err_insufficient'])
-                            st.session_state.wrong_password_count = 0                          
+                            st.session_state.wrong_password_count = 0
+                        except OptimisticLockError:
+                            st.error(text['rh_err_system_busy'])                     
                         
     if st.session_state.wrong_password_count > 2:
         st.session_state.receiver_num = ''

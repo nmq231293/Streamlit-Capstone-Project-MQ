@@ -65,18 +65,18 @@ if 'session_expired' in st.session_state:
         try:
             auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
             timestamped_id = auth_serializer.loads(url_token)
-            login_timestamp, stk_decrypted = timestamped_id.split("|", 1)
+            login_timestamp, stk_decrypted, _ = timestamped_id.split("|", 2)
             
             st.session_state.acc_num = stk_decrypted
             st.session_state.login_state = False
             session_expired(st.session_state.session_expired)
             
-        except BadSignature:
+        except (BadSignature, ValueError):
             st.query_params.clear()
             st.session_state.login_state = False     
     else:
         st.query_params.clear()
-        st.session_state.login_state = False     
+        st.session_state.login_state = False   
 
 else:
     if "login_state" not in st.session_state:
@@ -85,21 +85,16 @@ else:
             try:
                 auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
                 timestamped_id = auth_serializer.loads(url_token)
-                last_activity_time, stk_decrypted = timestamped_id.split("|", 1)
+                last_activity_time, stk_decrypted, token_decrypted = timestamped_id.split("|", 2)
                 
                 if stk_decrypted in df.index:
                     worksheet, df = df_init()
                     session_value = str(df.loc[stk_decrypted, 'Session'])
                     previous_session_value = str(df.loc[stk_decrypted, 'Previous_Session'])                
                     if "|" in session_value:
-                        # Tách chuỗi: lấy mốc thời gian và thông tin trình duyệt đã lưu trên Sheet
-                        sheet_time, sheet_browser = session_value.split("|", 1) # Sử dụng split("|", 1) để tránh lỗi nếu chuỗi trình duyệt có dấu |
-                        # Lấy thông tin trình duyệt hiện thời của thiết bị đang F5
-                        current_browser = st.context.headers.get("User-Agent", "UnknownBrowser")
+                        sheet_time, sheet_token = session_value.split("|", 1)
 
-                        
-                        # KIỂM TRA CHÉO: Thời gian < 1 tiếng VÀ Thông tin trình duyệt phải TRÙNG KHỚP 100%
-                        if current_browser == sheet_browser:
+                        if token_decrypted == sheet_token:
                             CURRENT_TIME = time.time()
                             if CURRENT_TIME - float(sheet_time) <= 3600:
                                 if 'last_activity_time' not in st.session_state:
@@ -107,6 +102,7 @@ else:
                                 st.session_state.login_state = True
                                 st.session_state.acc_num = stk_decrypted
                                 st.session_state.acc_name = df.loc[stk_decrypted, 'Name']
+                                st.session_state.session_token = token_decrypted
 
                                 match stk_decrypted:
                                     case 'creator': st.session_state.power_level = 3
@@ -119,37 +115,37 @@ else:
                                 logout('expired')
                     if "login_state" not in st.session_state: 
                         if "|" in previous_session_value:
-                            # Lấy thông tin trình duyệt hiện thời của thiết bị đang F5
-                            current_browser = st.context.headers.get("User-Agent", "UnknownBrowser")                         
-                            previous_sheet_time, previous_sheet_browser = previous_session_value.split("|", 1)
-                            if current_browser == previous_sheet_browser:
+                            previous_sheet_time, previous_sheet_token = previous_session_value.split("|", 1)
+                            if token_decrypted == previous_sheet_token:
                                 st.session_state.session_expired = 'hijacked'
                                 logout('hijacked')
                             else:
                                 st.query_params.clear()
                                 st.session_state.login_state = False
                         else:
-                            # Sai trình duyệt (Kẻ xấu copy link sang thiết bị khác) hoặc hết hạn -> Đá văng
                             st.query_params.clear()
                             st.session_state.login_state = False
                 else:
                     st.query_params.clear()
                     st.session_state.login_state = False
-                    
             except BadSignature:
+                st.query_params.clear()
+                st.session_state.login_state = False
+            except ValueError:
+                # timestamped_id không đủ 3 phần (vd token cũ từ trước khi đổi cơ chế) -> coi như không hợp lệ
                 st.query_params.clear()
                 st.session_state.login_state = False
         else:
             st.session_state.login_state = False
-
+        
 # Đảm bảo URL luôn giữ Token này khi người dùng chuyển qua lại các menu navbar mặc định
 if st.session_state.get("login_state"):
     CURRENT_TIME = time.time()
-    if "auth_token" not in st.query_params:
-        last_activity_timestamp = str(int(CURRENT_TIME))
-        new_timestamped_id = f"{last_activity_timestamp}|{st.session_state.acc_num}"
-        auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
-        st.query_params["auth_token"] = auth_serializer.dumps(new_timestamped_id)
+    last_activity_timestamp = str(int(CURRENT_TIME))
+    new_timestamped_id = f"{last_activity_timestamp}|{st.session_state.acc_num}|{st.session_state.session_token}"
+    auth_serializer = URLSafeSerializer(st.secrets["SECRET_KEY"])
+    st.query_params["auth_token"] = auth_serializer.dumps(new_timestamped_id)
+
     if CURRENT_TIME - st.session_state.last_activity_time <= 600:
         st.session_state.last_activity_time = CURRENT_TIME
     else:

@@ -40,8 +40,6 @@ elif st.session_state.transfer_state == 1:
     st.session_state.transfer_state = 0
     st.switch_page('pages/re_submit.py')
 elif st.session_state.transfer_state == 2:
-    
-    st.session_state.transfer_state = 0
 
     st.balloons()
     st.success(f'{text["transfer_success_title"]}')    
@@ -50,10 +48,12 @@ elif st.session_state.transfer_state == 2:
 
     with col1:
         if st.button(f'{text["continue_transfer_button"]}', icon='💸'):
+            st.session_state.transfer_state = 0
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/transfer.py')
     
     with col2:
         if st.button(f'{text["back_to_home_button"]}', icon='🏡'):
+            st.session_state.transfer_state = 0
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/home.py')
