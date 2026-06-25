@@ -67,6 +67,8 @@ DICTIONARY = {
         'su_lbl_custom_id': 'Điền dãy số mà quý khách mong muốn có trong số tài khoản, bỏ trống nếu quý khách muốn nhận số tài khoản mặc định từ hệ thống',
         'su_placeholder_id_avail': 'đang khả dụng',
         'su_info_dob_avail': 'Dãy số ngày sinh của quý khách đang khả dụng để làm số tài khoản, quý khách có thể bấm đăng ký để chọn dãy số này',
+        'su_lbl_choose_suggested': 'Chọn một số tài khoản trong danh sách gợi ý:',
+        'su_lbl_chosen_acc': 'Quý khách đã chọn',
         'su_radio_single_avail': 'Xác nhận dùng {} làm số tài khoản',
         'su_radio_single_desc': 'Dãy số quý khách đã chọn khả dụng để làm số tài khoản, quý khách hãy xác nhận dùng dãy số này. Nếu không hãy chọn mặc định để lấy một số ngẫu nhiên hoặc chọn một dãy số khác',
         'su_pills_multi_desc': 'Dưới đây là một vài số tài khoản có chứa dãy số yêu thích của quý khách, vui lòng chọn một số để làm số tài khoản. Quý khách có thể chọn mặc định để nhận số tài khoản ngẫu nhiên hoặc đổi dãy số khác',
@@ -90,6 +92,7 @@ DICTIONARY = {
         'su_err_id_digit': 'Số tài khoản không được chứa chữ cái',
         'su_err_id_length': 'Số tài khoản không được quá 8 chữ số',
         'su_err_no_avail_id': 'Không còn số tài khoản khả dụng nào chứa dãy số này, hãy chọn số khác hoặc bỏ trống',
+        'su_err_id_taken': 'Số tài khoản này vừa được người khác đăng ký, vui lòng chọn lại số khác.',
         'su_err_recheck': 'Vui lòng kiểm tra và nhập lại',
 
         # --- FORM ĐĂNG NHẬP (LOGIN FORM) ---
@@ -224,6 +227,8 @@ DICTIONARY = {
         'su_lbl_custom_id': 'Enter preferred digits for your account number, or leave blank to receive a system default account number',
         'su_placeholder_id_avail': 'is available',
         'su_info_dob_avail': 'Your date of birth digits are available to use as your account number. Click register to select this option.',
+        'su_lbl_choose_suggested': 'Choose an account number from the suggested list:',
+        'su_lbl_chosen_acc': 'You have chosen',
         'su_radio_single_avail': 'Confirm using {} as account number',
         'su_radio_single_desc': 'Your selected digits are available for your account number. Please confirm to use them. Otherwise, select Default to get a random number or change to different digits',
         'su_pills_multi_desc': 'Below are a few available account numbers containing your favorite digits, please select one. You can select Default to receive a random account number or change to different digits',
@@ -247,6 +252,7 @@ DICTIONARY = {
         'su_err_id_digit': 'Account number cannot contain letters',
         'su_err_id_length': 'Account number cannot exceed 8 digits',
         'su_err_no_avail_id': 'No available account numbers contain these digits, please choose others or leave blank',
+        'su_err_id_taken': 'This account number was just registered by someone else, please choose a different number.',
         'su_err_recheck': 'Please check the information and try again',
 
         # --- LOGIN FORM (EN) ---

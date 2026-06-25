@@ -7,7 +7,6 @@ import re
 import random
 from datetime import date, datetime
 from openai import OpenAI
-from streamlit_float import *
 import bcrypt
 import secrets
 
@@ -100,7 +99,6 @@ def embed_chatbot():
                         st.write(f':green[{user_query.capitalize()}]')
                 st.session_state.messages.append({"role": "user", "content": f':green[{user_query.capitalize()}]'})
 
-                from openai import OpenAI
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 with chat_history_box:
                     with st.chat_message("assistant"):
@@ -163,7 +161,8 @@ def df_init():
                     'Balance' : 'int64',
                     'Session' : 'str',
                     'Previous_Session' : 'str',
-                    'Version' : 'int64'
+                    'Version' : 'int64',
+                    'Power_Level' : 'int64'
                     })
 
     # Xử lý dataframe
@@ -201,15 +200,18 @@ def session_expired(reason:str = 'expired'):
     st.info(session_expired_dialog_text)
     st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
 
+    def invalidate_all_sessions(current_df):
+        if reason == 'expired' or reason == 'timeout':
+            current_df.loc[st.session_state.acc_num, 'Session'] = '0'
+        else:
+            # hijacked -> đăng xuất CẢ máy đang chiếm (Session) và xóa luôn dấu vết cũ (Previous_Session)
+            current_df.loc[st.session_state.acc_num, 'Session'] = '0'
+            current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
+
     c1, c2, c3 = st.columns([3,3,2])
     with c1:    
         if st.button(f'**:green[{text["relogin_button"]}]**', icon='🔑', key="btn_sess_login"):
-            def invalidate_session(current_df):
-                if reason == 'expired' or reason == 'timeout':
-                    current_df.loc[st.session_state.acc_num, 'Session'] = '0'
-                else:
-                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-            update_accounts_safely([st.session_state.acc_num], invalidate_session)
+            update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
 
             del st.session_state.session_expired
             del st.session_state.acc_num
@@ -221,9 +223,7 @@ def session_expired(reason:str = 'expired'):
     with c2:
         if reason == 'hijacked':
             if st.button(f'**:green[{text["change_password_button"]}]**', icon='🔓', key="btn_hj_change_pass"):
-                def invalidate_previous_session(current_df):
-                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-                update_accounts_safely([st.session_state.acc_num], invalidate_previous_session)
+                update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
 
                 del st.session_state.session_expired
                 del st.session_state.acc_num
@@ -235,12 +235,7 @@ def session_expired(reason:str = 'expired'):
     
     with c3:
         if st.button(f'**:red[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**', icon='❗', key="btn_sess_stay"):
-            def invalidate_session_stay(current_df):
-                if reason == 'expired' or reason == 'timeout':
-                    current_df.loc[st.session_state.acc_num, 'Session'] = '0'
-                else:
-                    current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-            update_accounts_safely([st.session_state.acc_num], invalidate_session_stay)
+            update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
 
             del st.session_state.session_expired
             del st.session_state.acc_num
@@ -336,11 +331,21 @@ def new_id_check(id):
     global df
     if id not in df.index:
         return id
-    else:
-        for i in range(1, 100000000):
-            if f'{i:08}' not in df.index:
-                return f'{i:08}'
-                break
+
+    # Tìm 1 số khác còn trống bằng random sampling
+    # (nhanh hơn quét tuần tự 1->99999999 khi không gian số rất lớn nhưng số đã dùng còn ít)
+    max_random_attempts = 1000
+    for _ in range(max_random_attempts):
+        candidate = f'{random.randint(1, 99999999):08}'
+        if candidate not in df.index:
+            return candidate
+
+    # Trường hợp cực hiếm: random mãi không trúng (sheet gần đầy) -> quét tuần tự để chắc chắn tìm được
+    for i in range(1, 100000000):
+        if f'{i:08}' not in df.index:
+            return f'{i:08}'
+
+    raise RuntimeError("Không còn số tài khoản nào khả dụng trong hệ thống.")
 
 # Nhóm hàm tạo list ID số đẹp
 
@@ -424,10 +429,18 @@ def work_sheet_update(worksheet, df = df_init()):
     df.set_index('ID', inplace=True)
 
 # Hàm tạo tài khoản mới
-def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
-    worksheet, df = df_init()
+class AccountIdTakenError(Exception):
+    """Báo hiệu việc tạo tài khoản thất bại vì số tài khoản vừa bị người khác đăng ký trước trong tích tắc."""
+    pass
 
-    df.loc[stk] = pd.Series({
+
+def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
+    worksheet, fresh_df = df_init()
+
+    if stk in fresh_df.index:
+        raise AccountIdTakenError(stk)
+
+    fresh_df.loc[stk] = pd.Series({
                             'Name':ten,
                             'DoB':ngay_sinh,
                             'Phone':sdt,
@@ -435,11 +448,13 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                             'Password':hash_password(matkhau),
                             'Balance':sodu,
                             'Session':'0',
-                            'Previous_Session':'0'
+                            'Previous_Session':'0',
+                            'Version':0,
+                            'Power_Level':0
                             })
-    df.sort_index(inplace=True)
+    fresh_df.sort_index(inplace=True)
 
-    work_sheet_update(worksheet, df)
+    work_sheet_update(worksheet, fresh_df)
     
 # Các thông số cho hàm chuyển khoản:
 MAX_RETRY_ATTEMPTS = 5
@@ -511,6 +526,12 @@ def process_temp_DoB():
     temp_DoB = st.session_state.temp_DoB
     st.session_state.pr_temp_DoB = temp_DoB.strftime('%d/%m/%Y').replace('/', '')
 
+
+# Hằng số nội bộ cho lựa chọn số tài khoản khi đăng ký - KHÔNG đổi theo ngôn ngữ, dùng để so sánh logic an toàn
+ACC_ID_OPTION_USE_SUGGESTED = '__acc_opt_use_suggested__'
+ACC_ID_OPTION_DEFAULT = '__acc_opt_default__'
+ACC_ID_OPTION_CHANGE = '__acc_opt_change__'
+
 # Form đăng ký tài khoản mới
 def signup_form():
 
@@ -526,7 +547,9 @@ def signup_form():
     stk_mac_dinh = new_id_check(st.session_state.pr_temp_DoB)
     st.markdown('')
     st.markdown(f"**:violet[{text['su_section_optional']}]**")
-    
+
+    stk_modify = None
+
     if st.session_state.available_id_list == []:
         stk = st.text_input(text['su_lbl_custom_id']
                             ,placeholder=stk_mac_dinh + ' ' + text['su_placeholder_id_avail'], max_chars=8
@@ -535,9 +558,15 @@ def signup_form():
             st.info(text['su_info_dob_avail'])
             
     elif len(st.session_state.available_id_list) == 1:
-        stk_modify = st.radio(f':red[{text['su_radio_single_desc']}]',
-                    [text['su_radio_single_avail'].format(f':green[{st.session_state.available_id_list[0]}]')] + [text['su_opt_default'], text['su_opt_change_id']],
-                    index=0, key= 'acc_no')
+        single_option_labels = {
+            ACC_ID_OPTION_USE_SUGGESTED: text['su_radio_single_avail'].format(f':green[{st.session_state.available_id_list[0]}]'),
+            ACC_ID_OPTION_DEFAULT: text['su_opt_default'],
+            ACC_ID_OPTION_CHANGE: text['su_opt_change_id'],
+        }
+        stk_modify = st.radio(f':red[{text["su_radio_single_desc"]}]',
+                    [ACC_ID_OPTION_USE_SUGGESTED, ACC_ID_OPTION_DEFAULT, ACC_ID_OPTION_CHANGE],
+                    format_func=lambda x: single_option_labels[x],
+                    index=0, key='acc_no')
         if 'acc_no' in st.session_state:
             stk = st.session_state.acc_no
         else:
@@ -548,12 +577,12 @@ def signup_form():
         account_list = st.session_state.available_id_list
 
         if account_list:
-            st.write("**Chọn một số tài khoản trong danh sách gợi ý:**")
+            st.write(f"**{text['su_lbl_choose_suggested']}**")
             if 'acc_no' not in st.session_state:
                 st.session_state.acc_no = None
             # Chia thành lưới 5 cột để xếp các số tài khoản thẳng hàng nằm ngang như st.pills
             cols = st.columns(5) 
-            txt_color = ':red['            
+            txt_color = ':orange['            
             for idx, acc_no in enumerate(account_list):
                 # Chia đều các số vào các cột tuần hoàn
                 with cols[idx % 5]:
@@ -563,12 +592,26 @@ def signup_form():
                     # Mỗi số tài khoản biến thành một nút st.button tuyệt đẹp theo CSS main.py của bạn
                     if st.button(f"{txt_color}{acc_no}]", key=f"acc_{acc_no}"):
                         st.session_state.acc_no = acc_no
+                        st.session_state.acc_no_radio = None  # bỏ chọn radio nếu đang chọn
                         st.rerun()
-                    txt_color = ':red['
+                    txt_color = ':orange['
         stk = st.session_state.acc_no
-        st.markdown(f'Quý khách đã chọn: :green[{stk}]')
+        if stk is not None:
+            st.markdown(f'{text["su_lbl_chosen_acc"]}: :green[{stk}]')
 
-        stk_modify = st.radio(text['su_radio_multi_lbl'], [text['su_opt_default'], text['su_opt_change_id']], index=None, label_visibility='hidden', key='acc_no')
+        multi_option_labels = {
+            ACC_ID_OPTION_DEFAULT: text['su_opt_default'],
+            ACC_ID_OPTION_CHANGE: text['su_opt_change_id'],
+        }
+
+        def reset_grid_selection():
+            st.session_state.acc_no = None
+
+        stk_modify = st.radio(text['su_radio_multi_lbl'],
+                    [ACC_ID_OPTION_DEFAULT, ACC_ID_OPTION_CHANGE],
+                    format_func=lambda x: multi_option_labels[x],
+                    index=None, label_visibility='hidden', key='acc_no_radio',
+                    on_change=reset_grid_selection)
         st.info(text['su_info_choose_suggest'])
         
     if st.button(text['su_btn_signup']):
@@ -607,17 +650,17 @@ def signup_form():
             st.error(text['su_err_pass_mismatch'])
             form_check = False            
         if st.session_state.available_id_list != [] and stk_modify != None:
-            if 'Xác nhận' in stk_modify or 'Confirm' in stk_modify:
+            if stk_modify == ACC_ID_OPTION_USE_SUGGESTED:
                 stk = st.session_state.available_id_list[0]
             elif stk == None:
                 stk = stk_modify
         if stk == None:
             st.error(text['su_err_must_choose_id'])
             form_check = False
-        elif stk == '' or stk == text['su_opt_default'] or stk == 'Mặc định':
+        elif stk == '' or stk == ACC_ID_OPTION_DEFAULT:
             stk = stk_mac_dinh
             stkc = stk_mac_dinh
-        elif stk == text['su_opt_change_id'] or stk == 'Đổi dãy số khác':
+        elif stk == ACC_ID_OPTION_CHANGE:
             st.session_state.available_id_list = []
         elif not stk.isdigit():
             st.error(text['su_err_id_digit'])
@@ -629,7 +672,7 @@ def signup_form():
             stkc = f'{int(stk):08}'
             
         if form_check:
-            if stk == text['su_opt_change_id'] or stk == 'Đổi dãy số khác':           
+            if stk == ACC_ID_OPTION_CHANGE:           
                 st.rerun()
             if not id_available_check(stkc) or len(stk) < 8:
                 st.session_state.available_id_list = new_id_suggest(stk,30)
@@ -643,12 +686,16 @@ def signup_form():
                 st.rerun()
 
         if form_check:
-            st.session_state.previous_page.append(st.session_state.current_page)
-            account_signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
-            st.session_state.available_id_list = []
-            st.session_state.acc_num = stk
-            st.session_state.signup_state = True
-            st.switch_page('pages/signup_success.py')
+            try:
+                account_signup(stk, ten, ngay_sinh, sdt, email, mat_khau, sodu)
+                st.session_state.previous_page.append(st.session_state.current_page)
+                st.session_state.available_id_list = []
+                st.session_state.acc_num = stk
+                st.session_state.signup_state = True
+                st.switch_page('pages/signup_success.py')
+            except AccountIdTakenError:
+                st.session_state.available_id_list = []
+                st.error(text['su_err_id_taken'])
         else:
             st.error(text['su_err_recheck'])
 
@@ -731,13 +778,7 @@ def login_form():
                         update_accounts_safely([stk], apply_new_session)
                         st.session_state.session_token = new_session_token
                         
-                        match stk:
-                            case 'creator':
-                                st.session_state.power_level = 3
-                            case 'tester':
-                                st.session_state.power_level = 2
-                            case 'viewer':
-                                st.session_state.power_level = 1    
+                        st.session_state.power_level = int(df.loc[stk, 'Power_Level'])
                         st.switch_page('pages/login_success.py')
                         
     if st.session_state.wrong_password_count > 2:

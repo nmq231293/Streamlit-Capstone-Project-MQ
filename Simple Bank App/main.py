@@ -103,12 +103,7 @@ else:
                                 st.session_state.acc_num = stk_decrypted
                                 st.session_state.acc_name = df.loc[stk_decrypted, 'Name']
                                 st.session_state.session_token = token_decrypted
-
-                                match stk_decrypted:
-                                    case 'creator': st.session_state.power_level = 3
-                                    case 'tester': st.session_state.power_level = 2
-                                    case 'viewer': st.session_state.power_level = 1
-                                    case _: st.session_state.power_level = 0
+                                st.session_state.power_level = int(df.loc[stk_decrypted, 'Power_Level'])
 
                             else:
                                 st.session_state.session_expired = 'expired'
