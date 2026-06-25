@@ -174,6 +174,15 @@ def df_init():
     df.sort_index(inplace=True)
     return worksheet, df
 
+@st.cache_data(ttl=5)
+def get_display_snapshot():
+    """
+    Đọc nhanh dữ liệu sheet, dùng cho HIỂN THỊ/KIỂM TRA NHẸ (chấp nhận trễ tối đa 5 giây).
+    KHÔNG dùng cho login, chuyển tiền, đổi mật khẩu - những nơi đó luôn gọi df_init() trực tiếp.
+    """
+    _, snapshot_df = df_init()
+    return snapshot_df
+
 worksheet, df = df_init()
 
 
@@ -328,21 +337,18 @@ def calculate_age(birth_date):
 
 # Hàm trả về cùng tham số nếu ID này khả dụng, nếu không sẽ trả một số ID khả dụng nhỏ nhất có thể
 def new_id_check(id):
-    global df
-    if id not in df.index:
+    snapshot_df = get_display_snapshot()
+    if id not in snapshot_df.index:
         return id
 
-    # Tìm 1 số khác còn trống bằng random sampling
-    # (nhanh hơn quét tuần tự 1->99999999 khi không gian số rất lớn nhưng số đã dùng còn ít)
     max_random_attempts = 1000
     for _ in range(max_random_attempts):
         candidate = f'{random.randint(1, 99999999):08}'
-        if candidate not in df.index:
+        if candidate not in snapshot_df.index:
             return candidate
 
-    # Trường hợp cực hiếm: random mãi không trúng (sheet gần đầy) -> quét tuần tự để chắc chắn tìm được
     for i in range(1, 100000000):
-        if f'{i:08}' not in df.index:
+        if f'{i:08}' not in snapshot_df.index:
             return f'{i:08}'
 
     raise RuntimeError("Không còn số tài khoản nào khả dụng trong hệ thống.")
@@ -351,7 +357,8 @@ def new_id_check(id):
 
 # Hàm kiểm tra ID khả dụng hay không
 def id_available_check(num):
-    return True if num not in df.index else False
+    snapshot_df = get_display_snapshot()
+    return num not in snapshot_df.index
 
 # Hàm tạo các tổ hợp số đẹp chứa dãy số cho trước
 def id_num_generate(init_num:str, init_choices = [6,8,9]):
@@ -615,7 +622,9 @@ def signup_form():
         st.info(text['su_info_choose_suggest'])
         
     if st.button(text['su_btn_signup']):
+        
         form_check = True
+        
         if ten == '':
             st.error(text['su_err_name_empty'])
             form_check = False
@@ -624,22 +633,28 @@ def signup_form():
             form_check = False
         elif ten.isdigit():
             st.error(text['su_err_name_digit'])
-            form_check = False            
+            form_check = False
+            
         if calculate_age(ngay_sinh) < 16:
             st.error(text['su_err_age_limit'])
             form_check = False
+            
+        snapshot_df = get_display_snapshot()
+        
         if not validate_phone(sdt):
             st.error(text['su_err_phone_format'])
             form_check = False
-        elif sdt in list(df['Phone']):
+        elif sdt in list(snapshot_df['Phone']):
             st.error(text['su_err_phone_exist'])
             form_check = False
+            
         if not validate_email(email):
             st.error(text['su_err_email_format'])
             form_check = False
-        elif email.upper() in list(df['Email'].str.upper()):
+        elif email.upper() in list(snapshot_df['Email'].str.upper()):
             st.error(text['su_err_email_exist'])
             form_check = False
+            
         if mat_khau == '':
             st.error(text['su_err_pass_empty'])
             form_check = False
@@ -649,11 +664,13 @@ def signup_form():
         elif mat_khau != xn_mat_khau:
             st.error(text['su_err_pass_mismatch'])
             form_check = False            
+            
         if st.session_state.available_id_list != [] and stk_modify != None:
             if stk_modify == ACC_ID_OPTION_USE_SUGGESTED:
                 stk = st.session_state.available_id_list[0]
             elif stk == None:
                 stk = stk_modify
+                
         if stk == None:
             st.error(text['su_err_must_choose_id'])
             form_check = False
@@ -824,7 +841,8 @@ def logout(cause:str = 'manual'):
 
 # Hàm lấy số dư tài khoản
 def available_balance(stk:str):
-    return df.loc[stk, 'Balance']
+    _, fresh_df = df_init()
+    return fresh_df.loc[stk, 'Balance']
 
 # Form tạo yêu cầu chuyển tiền
 def money_transfer_form():
@@ -835,8 +853,9 @@ def money_transfer_form():
     tien_ckc = st.session_state.transfer_amount
     
     stk = st.text_input(text['tf_lbl_receiver'], value=stkc, max_chars=8, placeholder=text['tf_placeholder_receiver'])
-    if stk in df.index:
-        st.write(f':blue[{format(df.loc[stk, 'Name'])}]')
+    snapshot_df = get_display_snapshot()
+    if stk in snapshot_df.index:
+        st.write(f':blue[{format(snapshot_df.loc[stk, 'Name'])}]')
         
     tien_ck = st.number_input(text['tf_lbl_amount'], value=tien_ckc, max_value=500000000, step=100000, placeholder=text['tf_placeholder_amount'], format='%u')
     if 100000 <= tien_ck <= 500000000:
@@ -854,7 +873,7 @@ def money_transfer_form():
             st.error(text['tf_err_min_limit'])
         elif noi_dung == '':
             st.error(text['tf_err_content_empty'])
-        elif stk not in df.index:
+        elif stk not in snapshot_df.index:
             st.error(text['tf_err_not_found'])
         else:
             st.session_state.previous_page.append(st.session_state.current_page)
