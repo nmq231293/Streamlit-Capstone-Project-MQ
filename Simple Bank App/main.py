@@ -61,17 +61,16 @@ login_success = st.Page('pages/login_success.py', title=st.session_state.text['l
 transfer = st.Page('pages/transfer.py', title=st.session_state.text['transfer_title'], icon='💸')
 transfer_rehearsal = st.Page('pages/transfer_rehearsal.py', title=st.session_state.text['transfer_rehearsal_title'], icon='💸')
 transfer_success = st.Page('pages/transfer_success.py', title=st.session_state.text['transfer_success_title'], icon='💸')
-deposit = st.Page('pages/deposit.py', title=st.session_state.text['deposit_title'], icon='💵')
-deposit_success = st.Page('pages/deposit_success.py', title=st.session_state.text['deposit_success_title'], icon='💵')
-withdraw = st.Page('pages/withdraw.py', title=st.session_state.text['withdraw_title'], icon='💰')
-withdraw_success = st.Page('pages/withdraw_success.py', title=st.session_state.text['withdraw_success_title'], icon='💰')
+savings = st.Page('pages/savings.py', title=st.session_state.text['deposit_title'], icon='🏦')
+loans = st.Page('pages/loans.py', title=st.session_state.text['withdraw_title'], icon='💳')
 re_submit = st.Page('pages/re_submit.py', title=st.session_state.text['re_submit_title'], icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title=st.session_state.text['password_wrong_title'], icon='❌')
 account_settings = st.Page('pages/account_settings.py', title=st.session_state.text['account_settings_title'], icon='⚙️')
+history = st.Page('pages/history.py', title=st.session_state.text['history_title'], icon='📋')
 admin_power = st.Page('pages/admin_power.py', title=st.session_state.text['admin_power_title'], icon='👑')
 
 pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
-                    transfer_rehearsal, deposit, deposit_success, withdraw, withdraw_success,
+                    transfer_rehearsal, savings, loans, history,
                     re_submit, password_wrong, account_settings, admin_power], position='hidden')
 
 # Khởi tạo các biến session_state
@@ -107,6 +106,8 @@ if 'password_change_need' not in st.session_state:
     st.session_state.password_change_need = False
 if 'session_token' not in st.session_state:
     st.session_state.session_token = ''
+if 'history_page' not in st.session_state:
+    st.session_state.history_page = 1
 
 # Áp ảnh nền (đã cache, không còn đọc lại file mỗi lần rerun)
 if not apply_background_image("Simple Bank App/wallpaper/reynoldbank.png"):

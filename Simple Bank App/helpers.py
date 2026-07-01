@@ -5,10 +5,11 @@ import time
 import os
 import re
 import random
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import secrets
+from gspread.exceptions import WorksheetNotFound, APIError
 from openai import OpenAI
 import bcrypt
-import secrets
 
 
 # Chương trình chatbot trợ lý ảo:
@@ -129,27 +130,40 @@ def embed_chatbot():
 
 
 
-# Khởi tạo đọc dữ liệu bank accounts
-def df_init():
-    # Hàm lấy secrets để đọc file google sheet
-    def get_gspread_client():
 
-        credentials_dict = dict(st.secrets["connections"]["gsheets"])
-
-        gc = gspread.service_account_from_dict(credentials_dict)
-        return gc
+@st.cache_resource
+def get_gspread_client():
+    credentials_dict = dict(st.secrets["connections"]["gsheets"])
+    return gspread.service_account_from_dict(credentials_dict)
 
 
-    # Đọc file vào dataframe
-
+@st.cache_resource
+def get_spreadsheet():
     gc = get_gspread_client()
-
     spreadsheet_url = st.secrets["connections"]["gsheets"]["toplevel_url"]
-    sh = gc.open_by_url(spreadsheet_url)
+    return gc.open_by_url(spreadsheet_url)
 
-    worksheet = sh.worksheet("bank_account")
+# Khởi tạo đọc dữ liệu bank accounts
+@st.cache_resource
+def get_bank_account_worksheet():
+    sh = get_spreadsheet()
+    return sh.worksheet("bank_account")
 
-    data = worksheet.get_all_records()
+def with_quota_retry(func, max_attempts=4, base_delay=2):
+    """Tự động chờ và thử lại khi gặp lỗi quota tạm thời (HTTP 429) từ Google Sheets API."""
+    for attempt in range(max_attempts):
+        try:
+            return func()
+        except APIError as e:
+            is_quota_error = '429' in str(e) or 'Quota exceeded' in str(e)
+            if is_quota_error and attempt < max_attempts - 1:
+                time.sleep(base_delay * (attempt + 1))
+            else:
+                raise
+
+def df_init():
+    worksheet = get_bank_account_worksheet()
+    data = with_quota_retry(lambda: worksheet.get_all_records())
     df = pd.DataFrame(data)
 
 
@@ -433,7 +447,7 @@ def update_account_rows(worksheet, df, account_ids):
         row_series['DoB'] = str(row_series['DoB'])
         row_values = [acc_id] + [v.item() if hasattr(v, 'item') else v for v in row_series.tolist()]
         sheet_row_number = int(df.loc[acc_id, '_sheet_row'])
-        worksheet.update(range_name=f"A{sheet_row_number}", values=[row_values])
+        with_quota_retry(lambda rn=f"A{sheet_row_number}", rv=row_values: worksheet.update(range_name=rn, values=[rv]))
         
 # Hàm xuất df ra lại google sheet:
 def work_sheet_update(worksheet, df = df_init()):
@@ -466,7 +480,7 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
 
     new_row_values = [stk, ten, str(ngay_sinh), sdt, email, hash_password(matkhau),
                         sodu, '0', '0', 0, 0]
-    worksheet.append_row(new_row_values)
+    with_quota_retry(lambda: worksheet.append_row(new_row_values))
     
 # Các thông số cho hàm chuyển khoản:
 MAX_RETRY_ATTEMPTS = 5
@@ -519,18 +533,425 @@ def update_accounts_safely(account_ids: list, mutation_function):
 
     raise OptimisticLockError(f"Failed to update accounts {account_ids} after {MAX_RETRY_ATTEMPTS} attempts")
 
+@st.cache_resource
+def get_or_create_worksheet(sheet_name, all_columns_tuple):
+    """Lấy worksheet theo tên, tự tạo kèm header nếu chưa tồn tại.
+    Cache theo (sheet_name, all_columns_tuple) - chỉ gọi API 'mở sheet' 1 lần duy nhất
+    cho mỗi tên sheet, thay vì mỗi lần đọc/ghi đều gọi lại."""
+    sh = get_spreadsheet()
+    try:
+        return sh.worksheet(sheet_name)
+    except WorksheetNotFound:
+        worksheet = sh.add_worksheet(title=sheet_name, rows=100, cols=len(all_columns_tuple))
+        worksheet.append_row(list(all_columns_tuple))
+        return worksheet
+
+
+def generic_sheet_init(sheet_name, index_col, dtype_map, all_columns):
+    """Phiên bản tổng quát của df_init() - dùng cho sheet phụ (savings, loans...)."""
+    worksheet = get_or_create_worksheet(sheet_name, tuple(all_columns))
+    data = with_quota_retry(lambda: worksheet.get_all_records())
+    df = pd.DataFrame(data) if data else pd.DataFrame(columns=all_columns)
+    df = df.astype(dtype_map)
+    df['_sheet_row'] = range(2, len(df) + 2)
+    df.set_index(index_col, inplace=True)
+    return worksheet, df
+
+
+def generic_update_rows(worksheet, df, row_ids, all_columns, index_col):
+    for row_id in row_ids:
+        row_series = df.loc[row_id, [c for c in all_columns if c != index_col]].copy()
+        row_values = [row_id] + [v.item() if hasattr(v, 'item') else v for v in row_series.tolist()]
+        sheet_row_number = int(df.loc[row_id, '_sheet_row'])
+        with_quota_retry(lambda rn=f"A{sheet_row_number}", rv=row_values: worksheet.update(range_name=rn, values=[rv]))
+
+
+def update_rows_safely(init_function, all_columns, index_col, row_ids, mutation_function):
+    """Phiên bản tổng quát của update_accounts_safely() - dùng optimistic locking
+    cho bất kỳ sheet nào (savings, loans...), không chỉ bank_account."""
+    for attempt in range(MAX_RETRY_ATTEMPTS):
+        worksheet, fresh_df = init_function()
+        versions_before = {row_id: fresh_df.loc[row_id, 'Version'] for row_id in row_ids}
+        mutation_function(fresh_df)
+        for row_id in row_ids:
+            fresh_df.loc[row_id, 'Version'] = versions_before[row_id] + 1
+        _, check_df = init_function()
+        conflict = any(check_df.loc[row_id, 'Version'] != versions_before[row_id] for row_id in row_ids)
+        if not conflict:
+            generic_update_rows(worksheet, fresh_df, row_ids, all_columns, index_col)
+            return fresh_df
+        time.sleep(RETRY_BASE_DELAY * (attempt + 1))
+    raise OptimisticLockError(f"Failed to update rows {row_ids} after {MAX_RETRY_ATTEMPTS} attempts")
+
+# ==============================================================================
+# GỬI TIẾT KIỆM & VAY TIỀN
+# ==============================================================================
+
+SAVINGS_COLUMNS = ['Deposit_ID', 'Account_ID', 'Principal', 'Annual_Rate', 'Term_Months',
+                    'Start_Date', 'Maturity_Date', 'Status', 'Auto_Renew', 'Version']
+SAVINGS_DTYPES = {'Account_ID': 'str', 'Principal': 'int64', 'Annual_Rate': 'float64',
+                'Term_Months': 'int64', 'Start_Date': 'str', 'Maturity_Date': 'str',
+                'Status': 'str', 'Auto_Renew': 'bool', 'Version': 'int64'}
+
+LOAN_COLUMNS = ['Loan_ID', 'Account_ID', 'Principal', 'Annual_Rate', 'Term_Months',
+                'Start_Date', 'Maturity_Date', 'Status', 'Version']
+LOAN_DTYPES = {'Account_ID': 'str', 'Principal': 'int64', 'Annual_Rate': 'float64',
+                'Term_Months': 'int64', 'Start_Date': 'str', 'Maturity_Date': 'str',
+                'Status': 'str', 'Version': 'int64'}
+
+RATE_TABLE = {
+    1:  {'savings': 0.03,  'loan': 0.045},
+    3:  {'savings': 0.04,  'loan': 0.06},
+    6:  {'savings': 0.05,  'loan': 0.075},
+    12: {'savings': 0.06,  'loan': 0.09},
+    18: {'savings': 0.065, 'loan': 0.0975},
+    24: {'savings': 0.07,  'loan': 0.105},
+    36: {'savings': 0.075, 'loan': 0.1125},
+}
+
+SAVINGS_MIN_AMOUNT = 500000
+LOAN_MIN_AMOUNT = 500000
+LOAN_BASE_MAX_AMOUNT = 200000000
+LOAN_MAX_RATIO_OF_SAVINGS = 0.7
+DAYS_PER_MONTH = 30
+
+def savings_init():
+    return generic_sheet_init('savings', 'Deposit_ID', SAVINGS_DTYPES, SAVINGS_COLUMNS)
+
+
+def loans_init():
+    return generic_sheet_init('loans', 'Loan_ID', LOAN_DTYPES, LOAN_COLUMNS)
+
+def flash_success(message_or_key, is_key=True):
+    """Lưu 1 thông báo để hiển thị NGAY SAU rerun - vì st.success()+st.rerun() liên tiếp
+    sẽ làm mất thông báo (rerun xóa UI cũ trước khi người dùng kịp thấy)."""
+    st.session_state['_flash_message'] = {'type': 'key' if is_key else 'raw', 'value': message_or_key}
+
+
+def show_flash_message():
+    text = st.session_state.text
+    flash = st.session_state.pop('_flash_message', None)
+    if flash:
+        st.success(text[flash['value']] if flash['type'] == 'key' else flash['value'])
+
+def open_savings_deposit(stk, amount, term_months, auto_renew=False, start_date=None):
+    """start_date=None (gửi mới từ người dùng) -> bắt đầu hôm nay, TRỪ Balance.
+    start_date có giá trị (tái tục nội bộ) -> bắt đầu đúng từ ngày đó, KHÔNG trừ Balance."""
+    rate = RATE_TABLE[term_months]['savings']
+    is_new_deposit = start_date is None
+    actual_start = start_date if start_date else date.today()
+    maturity = actual_start + timedelta(days=DAYS_PER_MONTH * term_months)
+    deposit_id = secrets.token_hex(8)
+
+    worksheet = get_or_create_worksheet('savings', tuple(SAVINGS_COLUMNS))
+    with_quota_retry(lambda: worksheet.append_row([deposit_id, stk, amount, rate, term_months,
+                        str(actual_start), str(maturity), 'active', auto_renew, 0]))
+
+    if is_new_deposit:
+        def deduct_balance(current_df):
+            current_df.loc[stk, 'Balance'] -= amount
+        update_accounts_safely([stk], deduct_balance)
+        
+    if is_new_deposit:
+        def deduct_balance(current_df):
+            current_df.loc[stk, 'Balance'] -= amount
+        update_accounts_safely([stk], deduct_balance)
+        log_transaction(stk, TX_SAVINGS_OPEN, amount, reference_id=deposit_id)
+
+    return deposit_id
+
+    return deposit_id
+
+def toggle_savings_auto_renew(deposit_id, new_value):
+    def apply_toggle(current_df):
+        current_df.loc[deposit_id, 'Auto_Renew'] = new_value
+    update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], apply_toggle)
+
+def settle_matured_savings(stk):
+    """Xử lý các sổ tiết kiệm đã đến hạn. Nếu nhiều kỳ đã trôi qua (vd lâu không mở app),
+    tính lãi gộp qua TỪNG kỳ đã hoàn thành, không chỉ 1 kỳ."""
+    _, savings_df = savings_init()
+    my_deposits = savings_df[(savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')]
+    today = date.today()
+    matured_count = 0
+
+    for deposit_id, row in my_deposits.iterrows():
+        maturity = datetime.strptime(row['Maturity_Date'], '%Y-%m-%d').date()
+        if maturity <= today:
+            term_months = int(row['Term_Months'])
+            rate = float(row['Annual_Rate'])
+            principal = int(row['Principal'])
+            auto_renew = bool(row['Auto_Renew'])
+
+            def close_deposit(current_df):
+                current_df.loc[deposit_id, 'Status'] = 'closed'
+            try:
+                update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], close_deposit)
+            except OptimisticLockError:
+                continue
+
+            if auto_renew:
+                current_principal = principal
+                current_maturity = maturity
+                current_start = maturity
+                while current_maturity <= today:
+                    current_principal = int(current_principal + current_principal * rate * term_months / 12)
+                    current_start = current_maturity
+                    current_maturity = current_start + timedelta(days=DAYS_PER_MONTH * term_months)
+
+                open_savings_deposit(stk, current_principal, term_months, auto_renew=True, start_date=current_start)
+                log_transaction(stk, TX_SAVINGS_AUTO_RENEW, current_principal, reference_id=deposit_id)
+                matured_count += 1
+            else:
+                payout = int(principal + principal * rate * term_months / 12)
+                def credit_balance(current_df):
+                    current_df.loc[stk, 'Balance'] += payout
+                try:
+                    update_accounts_safely([stk], credit_balance)
+                    log_transaction(stk, TX_SAVINGS_MATURED, payout, reference_id=deposit_id)
+                    matured_count += 1
+                except OptimisticLockError:
+                    pass
+
+    return matured_count
+
+
+def withdraw_savings_early(stk, deposit_id):
+    """Rút tiết kiệm trước hạn - chỉ nhận lại đúng số tiền gốc, mất toàn bộ lãi.
+    Nếu việc rút khiến hạn mức vay (70% tổng tiết kiệm) giảm xuống dưới dư nợ hiện tại,
+    tự động trích từ số tiền rút được để trả bớt nợ (FIFO - khoản vay cũ nhất trả trước)
+    cho đến khi dư nợ về lại trong hạn mức mới."""
+    _, savings_df = savings_init()
+    principal = int(savings_df.loc[deposit_id, 'Principal'])
+
+    def close_deposit(current_df):
+        current_df.loc[deposit_id, 'Status'] = 'closed'
+    update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], close_deposit)
+
+    # Tính hạn mức vay MỚI sau khi sổ này đã đóng (get_loan_limit tự đọc lại data mới nhất)
+    new_loan_limit = get_loan_limit(stk)
+    current_total_debt = get_total_active_loans(stk)
+
+    forced_paydown_amount = 0
+    if current_total_debt > new_loan_limit:
+        excess_debt = current_total_debt - new_loan_limit
+        forced_paydown_amount = min(excess_debt, principal)
+
+        _, loans_df = loans_init()
+        my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
+        my_loans = my_loans.sort_values('Start_Date')  # FIFO - khoản vay cũ nhất trả trước
+
+        remaining_to_pay = forced_paydown_amount
+        for loan_id, loan_row in my_loans.iterrows():
+            if remaining_to_pay <= 0:
+                break
+            loan_principal = int(loan_row['Principal'])
+            pay_this_loan = min(remaining_to_pay, loan_principal)
+            new_principal = loan_principal - pay_this_loan
+
+            if new_principal <= 0:
+                def close_this_loan(current_df, lid=loan_id):
+                    current_df.loc[lid, 'Status'] = 'closed'
+                try:
+                    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], close_this_loan)
+                except OptimisticLockError:
+                    continue
+            else:
+                def reduce_this_loan(current_df, lid=loan_id, new_p=new_principal):
+                    current_df.loc[lid, 'Principal'] = new_p
+                try:
+                    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], reduce_this_loan)
+                except OptimisticLockError:
+                    continue
+
+            remaining_to_pay -= pay_this_loan
+
+        forced_paydown_amount -= remaining_to_pay  # phần thực sự đã trừ được
+
+    amount_to_credit = principal - forced_paydown_amount
+
+    def credit_balance(current_df):
+        current_df.loc[stk, 'Balance'] += amount_to_credit
+    update_accounts_safely([stk], credit_balance)
+    
+    log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
+    if forced_paydown_amount > 0:
+        log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, forced_paydown_amount)
+
+    return principal, forced_paydown_amount
+
+def get_total_active_savings(stk):
+    """Tổng số tiền gốc đang gửi tiết kiệm (chỉ tính sổ còn active) - dùng để tính hạn mức vay."""
+    _, savings_df = savings_init()
+    my_active = savings_df[(savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')]
+    return int(my_active['Principal'].sum()) if not my_active.empty else 0
+
+
+def get_loan_limit(stk):
+    """Hạn mức vay tối đa = lớn hơn giữa mức sàn cố định và 70% tổng tiết kiệm đang có."""
+    total_savings = get_total_active_savings(stk)
+    return max(LOAN_BASE_MAX_AMOUNT, int(total_savings * LOAN_MAX_RATIO_OF_SAVINGS))
+
+
+def get_total_active_loans(stk):
+    """Tổng dư nợ gốc đang vay (active + overdue)."""
+    _, loans_df = loans_init()
+    my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
+    return int(my_loans['Principal'].sum()) if not my_loans.empty else 0
+
+def open_loan(stk, amount, term_months):
+    loan_limit = get_loan_limit(stk)
+    current_debt = get_total_active_loans(stk)
+    if current_debt + amount > loan_limit:
+        raise ValueError("LOAN_LIMIT_EXCEEDED")
+
+    rate = RATE_TABLE[term_months]['loan']
+    today = date.today()
+    maturity = today + timedelta(days=DAYS_PER_MONTH * term_months)
+    loan_id = secrets.token_hex(8)
+
+    worksheet = get_or_create_worksheet('loans', tuple(LOAN_COLUMNS))
+    with_quota_retry(lambda: worksheet.append_row([loan_id, stk, amount, rate, term_months,
+                        str(today), str(maturity), 'active', 0]))
+
+    def add_balance(current_df):
+        current_df.loc[stk, 'Balance'] += amount
+    update_accounts_safely([stk], add_balance)
+    log_transaction(stk, TX_LOAN_OPEN, amount, reference_id=loan_id)
+    return loan_id
+
+
+def settle_matured_loans(stk):
+    """Tự động trả nợ các khoản vay đã đến hạn (nếu đủ tiền) - trừ gốc+lãi từ Balance.
+    Nếu không đủ tiền, chuyển 'overdue' và tiếp tục tự thử ở lần đăng nhập sau."""
+    _, loans_df = loans_init()
+    my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
+    today = date.today()
+
+    for loan_id, row in my_loans.iterrows():
+        maturity = datetime.strptime(row['Maturity_Date'], '%Y-%m-%d').date()
+        if maturity <= today:
+            repay_amount = int(row['Principal'] + row['Principal'] * row['Annual_Rate'] * row['Term_Months'] / 12)
+            _, fresh_acc_df = df_init()
+            current_balance = int(fresh_acc_df.loc[stk, 'Balance'])
+
+            if current_balance >= repay_amount:
+                def repay(current_df):
+                    current_df.loc[stk, 'Balance'] -= repay_amount
+                try:
+                    update_accounts_safely([stk], repay)
+                    log_transaction(stk, TX_LOAN_REPAY_MATURED, repay_amount, reference_id=loan_id)
+                except OptimisticLockError:
+                    continue
+
+                def close_loan(current_df):
+                    current_df.loc[loan_id, 'Status'] = 'closed'
+                try:
+                    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], close_loan)
+                except OptimisticLockError:
+                    pass
+            else:
+                if row['Status'] != 'overdue':
+                    def mark_overdue(current_df):
+                        current_df.loc[loan_id, 'Status'] = 'overdue'
+                    try:
+                        update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], mark_overdue)
+                    except OptimisticLockError:
+                        pass
+
+
+def repay_loan_early(stk, loan_id):
+    """Trả nợ trước hạn - lãi tính theo số ngày thực vay (ít hơn lãi đủ kỳ hạn)."""
+    _, loans_df = loans_init()
+    loan_row = loans_df.loc[loan_id]
+    start = datetime.strptime(loan_row['Start_Date'], '%Y-%m-%d').date()
+    actual_days = max((date.today() - start).days, 1)
+    actual_months = actual_days / DAYS_PER_MONTH
+    repay_amount = int(loan_row['Principal'] + loan_row['Principal'] * loan_row['Annual_Rate'] * actual_months / 12)
+
+    def deduct_balance(current_df):
+        if current_df.loc[stk, 'Balance'] < repay_amount:
+            raise ValueError("INSUFFICIENT_FUNDS")
+        current_df.loc[stk, 'Balance'] -= repay_amount
+    update_accounts_safely([stk], deduct_balance)
+
+    def close_loan(current_df):
+        current_df.loc[loan_id, 'Status'] = 'closed'
+    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], close_loan)
+    
+    log_transaction(stk, TX_LOAN_REPAY_EARLY, repay_amount, reference_id=loan_id)
+    return repay_amount
+
+
+# ==============================================================================
+# LỊCH SỬ GIAO DỊCH
+# ==============================================================================
+TRANSACTION_COLUMNS = ['Transaction_ID', 'Account_ID', 'Type', 'Amount',
+                        'Reference_ID', 'Description', 'Timestamp']
+TRANSACTION_DTYPES = {
+    'Account_ID': 'str', 'Type': 'str', 'Amount': 'int64',
+    'Reference_ID': 'str', 'Description': 'str', 'Timestamp': 'str'
+}
+
+# Hằng số loại giao dịch - dùng trong code logic, KHÔNG đổi theo ngôn ngữ
+TX_TRANSFER_OUT        = 'transfer_out'
+TX_TRANSFER_IN         = 'transfer_in'
+TX_SAVINGS_OPEN        = 'savings_open'
+TX_SAVINGS_MATURED     = 'savings_matured'
+TX_SAVINGS_AUTO_RENEW  = 'savings_auto_renew'
+TX_SAVINGS_EARLY       = 'savings_early_withdraw'
+TX_LOAN_OPEN           = 'loan_open'
+TX_LOAN_REPAY_EARLY    = 'loan_repay_early'
+TX_LOAN_REPAY_MATURED  = 'loan_repay_matured'
+TX_LOAN_FORCED_PAYDOWN = 'loan_forced_paydown'
+
+ALL_TX_TYPES = [
+    TX_TRANSFER_OUT, TX_TRANSFER_IN,
+    TX_SAVINGS_OPEN, TX_SAVINGS_MATURED, TX_SAVINGS_AUTO_RENEW, TX_SAVINGS_EARLY,
+    TX_LOAN_OPEN, TX_LOAN_REPAY_EARLY, TX_LOAN_REPAY_MATURED, TX_LOAN_FORCED_PAYDOWN
+]
+
+# Loại nào thì số tiền là dương (cộng vào số dư)
+TX_POSITIVE_TYPES = {TX_TRANSFER_IN, TX_SAVINGS_MATURED, TX_SAVINGS_EARLY, TX_LOAN_OPEN}
+# Loại nào thì số tiền là âm (trừ khỏi số dư)
+TX_NEGATIVE_TYPES = {TX_TRANSFER_OUT, TX_SAVINGS_OPEN, TX_LOAN_REPAY_EARLY,
+                    TX_LOAN_REPAY_MATURED, TX_LOAN_FORCED_PAYDOWN}
+# Còn lại (TX_SAVINGS_AUTO_RENEW) là trung tính (số dư không đổi, chỉ ghi nhận sự kiện)
+
+def transactions_init():
+    return generic_sheet_init('transactions', 'Transaction_ID', TRANSACTION_DTYPES, TRANSACTION_COLUMNS)
+
+
+def log_transaction(acc_id, tx_type, amount, reference_id='', description=''):
+    """Ghi 1 dòng lịch sử giao dịch vào sheet transactions.
+    Fire-and-forget: nếu thất bại, bắt exception im lặng - không được để log crash giao dịch chính."""
+    try:
+        worksheet = get_or_create_worksheet('transactions', tuple(TRANSACTION_COLUMNS))
+        tx_id = secrets.token_hex(8)
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        with_quota_retry(lambda: worksheet.append_row(
+            [tx_id, acc_id, tx_type, int(amount), str(reference_id), str(description), timestamp]
+        ))
+    except Exception:
+        pass
+
+
 # Hàm chức năng chuyển tiền:
 def money_transfer(sender:str, receiver:str, transfer_amount:int):
     global worksheet, df
 
     def apply_transfer(current_df):
-        # Kiểm tra lại số dư trên data MỚI NHẤT (không tin vào số dư đã check trước đó ở UI)
         if current_df.loc[sender, 'Balance'] < transfer_amount:
             raise ValueError("INSUFFICIENT_FUNDS")
         current_df.loc[sender, 'Balance'] -= transfer_amount
         current_df.loc[receiver, 'Balance'] += transfer_amount
 
     df = update_accounts_safely([sender, receiver], apply_transfer)
+
+    receiver_name = df.loc[receiver, 'Name']
+    sender_name = df.loc[sender, 'Name']
+    log_transaction(sender, TX_TRANSFER_OUT, transfer_amount, reference_id=receiver, description=receiver_name)
+    log_transaction(receiver, TX_TRANSFER_IN, transfer_amount, reference_id=sender, description=sender_name)
 
 
 # Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
@@ -828,6 +1249,7 @@ def logout(cause:str = 'manual'):
     st.session_state.transfer_state = 0
     st.session_state.signup_state = False
     st.session_state.available_id_list = []
+    st.session_state.password_change_need = False
     
     if cause == 'manual':
         # Làm sạch hoàn toàn thanh URL và điều hướng về trang chủ
@@ -1061,33 +1483,32 @@ def account_info(stk):
         return
 
     current_info = snapshot_df.loc[stk]
+    is_privileged = st.session_state.power_level > 0  # tài khoản quản trị/kiểm thử -> chỉ xem
 
     if st.session_state.get('password_change_need'):
         st.warning(text['as_warning_forced_change'])
+
+    if is_privileged:
+        st.info(text['as_notice_privileged_view_only'])
+    else:
+        st.text_input(text['as_lbl_acc_num'], value=stk, disabled=True)
 
     # ============================================================
     # PHẦN 1: THÔNG TIN CÁ NHÂN
     # ============================================================
     st.markdown(f"**:violet[{text['as_section_profile']}]**")
     with st.form('form_account_info', clear_on_submit=False):
-        ten = st.text_input(text['su_lbl_name'], value=current_info['Name'], placeholder=text['su_placeholder_required'])
-        ngay_sinh = st.date_input(text['su_lbl_dob'], value=pd.to_datetime(current_info['DoB']).date(),
-                                min_value=date(1920, 1, 1), max_value=datetime.today(), format='DD/MM/YYYY')
-        sdt = st.text_input(text['su_lbl_phone'], value=current_info['Phone'])
-        email = st.text_input(text['su_lbl_email'], value=current_info['Email'])
+        st.text_input(text['su_lbl_name'], value=current_info['Name'], disabled=True)
+        st.date_input(text['su_lbl_dob'], value=pd.to_datetime(current_info['DoB']).date(),
+                    min_value=date(1920, 1, 1), max_value=datetime.today(), format='DD/MM/YYYY',
+                    disabled=True)
+        sdt = st.text_input(text['su_lbl_phone'], value=current_info['Phone'], disabled=is_privileged)
+        email = st.text_input(text['su_lbl_email'], value=current_info['Email'], disabled=is_privileged)
         current_pass_for_info = st.text_input(text['as_lbl_current_pass'], type='password', max_chars=24,
-                                                placeholder=text['su_placeholder_required'])
+                                                placeholder=text['su_placeholder_required'], disabled=is_privileged)
 
-        if st.form_submit_button(text['as_btn_save_profile']):
+        if st.form_submit_button(text['as_btn_save_profile'], disabled=is_privileged):
             form_check = True
-            if ten == '':
-                st.error(text['su_err_name_empty']); form_check = False
-            elif ' ' not in ten:
-                st.error(text['su_err_name_fullname']); form_check = False
-            elif ten.isdigit():
-                st.error(text['su_err_name_digit']); form_check = False
-            if calculate_age(ngay_sinh) < 16:
-                st.error(text['su_err_age_limit']); form_check = False
             if not validate_phone(sdt):
                 st.error(text['su_err_phone_format']); form_check = False
             else:
@@ -1107,12 +1528,9 @@ def account_info(stk):
 
             if form_check:
                 def apply_profile_update(current_df):
-                    current_df.loc[stk, 'Name'] = ten
-                    current_df.loc[stk, 'DoB'] = ngay_sinh
                     current_df.loc[stk, 'Phone'] = sdt
                     current_df.loc[stk, 'Email'] = email
                 update_accounts_safely([stk], apply_profile_update)
-                st.session_state.acc_name = ten
                 st.success(text['as_success_profile_updated'])
                 st.rerun()
 
@@ -1124,13 +1542,14 @@ def account_info(stk):
     st.markdown(f"**:violet[{text['as_section_change_pass']}]**")
     with st.form('form_change_password', clear_on_submit=True):
         current_pass = st.text_input(text['as_lbl_current_pass'], type='password', max_chars=24,
-                                    placeholder=text['su_placeholder_required'], key='current_pass_for_change')
+                                    placeholder=text['su_placeholder_required'], key='current_pass_for_change',
+                                    disabled=is_privileged)
         new_pass = st.text_input(text['as_lbl_new_pass'], type='password', max_chars=24,
-                                placeholder=text['su_placeholder_required'])
+                                placeholder=text['su_placeholder_required'], disabled=is_privileged)
         confirm_new_pass = st.text_input(text['as_lbl_confirm_new_pass'], type='password', max_chars=24,
-                                        placeholder=text['su_placeholder_required'])
+                                        placeholder=text['su_placeholder_required'], disabled=is_privileged)
 
-        if st.form_submit_button(text['as_btn_change_pass']):
+        if st.form_submit_button(text['as_btn_change_pass'], disabled=is_privileged):
             form_check = True
             if current_pass == '':
                 st.error(text['lg_err_pass_empty']); form_check = False
@@ -1148,4 +1567,4 @@ def account_info(stk):
                     current_df.loc[stk, 'Password'] = hash_password(new_pass)
                 update_accounts_safely([stk], apply_password_change)
                 st.session_state.password_change_need = False
-                st.success(text['as_success_pass_changed'])    
+                st.success(text['as_success_pass_changed'])

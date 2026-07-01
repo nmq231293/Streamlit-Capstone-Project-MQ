@@ -332,6 +332,13 @@ MAIN_CSS = """
         background: rgba(255, 255, 255, 0.1) !important;
         border-color: rgba(255, 255, 255, 0.3) !important;
     }
+    
+    /* Nền kính mờ cho các khung sổ tiết kiệm / khoản vay - đọc chữ dễ hơn trên nền ảnh */
+    div[data-testid="stVerticalBlock"] > div:has(div.finance-card-marker) {
+        background-color: rgba(15, 10, 30, 0.65) !important;
+        backdrop-filter: blur(8px);
+        border-radius: 12px;
+    }    
     </style>
 """
 
