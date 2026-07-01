@@ -44,18 +44,18 @@ else:
 
     col1, col2, col3, col4 = st.columns(4)
     with col1:
+        if st.button(f'{text["summary_btn"]}', icon='📊'):
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.switch_page('pages/summary.py')
+    with col2:
         if st.button(f'{text["transfer_title"]}', icon='💸'):
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/transfer.py')
-    with col2:
+    with col3:
         if st.button(f'{text["deposit_title"]}', icon='🏦'):
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/savings.py')
-    with col3:
+    with col4:
         if st.button(f'{text["withdraw_title"]}', icon='💳'):
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/loans.py')
-    with col4:
-        if st.button(f'{text["history_title"]}', icon='📋'):
-            st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/history.py')

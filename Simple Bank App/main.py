@@ -66,11 +66,13 @@ loans = st.Page('pages/loans.py', title=st.session_state.text['withdraw_title'],
 re_submit = st.Page('pages/re_submit.py', title=st.session_state.text['re_submit_title'], icon='😵')
 password_wrong = st.Page('pages/password_wrong.py', title=st.session_state.text['password_wrong_title'], icon='❌')
 account_settings = st.Page('pages/account_settings.py', title=st.session_state.text['account_settings_title'], icon='⚙️')
+summary = st.Page('pages/summary.py', title=st.session_state.text['summary_title'], icon='📊')
 history = st.Page('pages/history.py', title=st.session_state.text['history_title'], icon='📋')
 admin_power = st.Page('pages/admin_power.py', title=st.session_state.text['admin_power_title'], icon='👑')
 
-pg = st.navigation([home, signup, signup_success, login, login_success, transfer, transfer_success,
-                    transfer_rehearsal, savings, loans, history,
+pg = st.navigation([home, signup, signup_success, login, login_success,
+                    summary, transfer, transfer_success, transfer_rehearsal,
+                    savings, loans, history,
                     re_submit, password_wrong, account_settings, admin_power], position='hidden')
 
 # Khởi tạo các biến session_state
