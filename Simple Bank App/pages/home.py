@@ -24,6 +24,10 @@ if not st.session_state.login_state:
             st.switch_page('pages/signup.py')
 
 else:
+    from helpers import settle_matured_savings, settle_matured_loans
+    settle_matured_savings(st.session_state.acc_num)
+    settle_matured_loans(st.session_state.acc_num)
+
     if st.session_state.login_noti:
         st.success(f'{text["logged_in_noti"]}')
         st.session_state.login_noti = False
@@ -38,18 +42,20 @@ else:
     )
 
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button(f'{text["transfer_title"]}', icon='💸'):
             st.session_state.previous_page.append(st.session_state.current_page)
             st.switch_page('pages/transfer.py')
-
-    with col2:                
-        if st.button(f'{text["deposit_title"]}', icon='💵'):
+    with col2:
+        if st.button(f'{text["deposit_title"]}', icon='🏦'):
             st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/deposit.py')
-
+            st.switch_page('pages/savings.py')
     with col3:
-        if st.button(f'{text["withdraw_title"]}', icon='💰'):
+        if st.button(f'{text["withdraw_title"]}', icon='💳'):
             st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/withdraw.py')
+            st.switch_page('pages/loans.py')
+    with col4:
+        if st.button(f'{text["history_title"]}', icon='📋'):
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.switch_page('pages/history.py')
