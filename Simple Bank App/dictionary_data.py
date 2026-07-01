@@ -216,6 +216,18 @@ DICTIONARY = {
         'tx_loan_repay_matured': '✅ Trả nợ đáo hạn',
         'tx_loan_forced_paydown': '⚠️ Trả nợ bắt buộc',
         
+        # --- TỔNG QUAN ---
+        'summary_title': 'Tổng quan tài khoản',
+        'summary_acc_info': 'Thông tin tài khoản',
+        'summary_active_savings': 'Tiết kiệm đang hoạt động',
+        'summary_active_loans': 'Khoản vay đang hoạt động',
+        'summary_recent_tx': 'Giao dịch gần nhất',
+        'summary_no_savings': 'Không có sổ tiết kiệm nào đang hoạt động',
+        'summary_no_loans': 'Không có khoản vay nào đang hoạt động',
+        'summary_no_tx': 'Chưa có giao dịch nào',
+        'summary_view_all_history': 'Xem toàn bộ lịch sử',
+        'summary_btn': 'Tổng quan',
+        
         # --- SYSTEM PROMPT CHATBOT VI ---
         'system_prompt': '''        
             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
@@ -449,6 +461,18 @@ DICTIONARY = {
         'tx_loan_repay_early': '✅ Early Loan Repayment',
         'tx_loan_repay_matured': '✅ Loan Matured Repayment',
         'tx_loan_forced_paydown': '⚠️ Forced Loan Paydown',
+        
+        # --- SUMMARY ---
+        'summary_title': 'Account Summary',
+        'summary_acc_info': 'Account Information',
+        'summary_active_savings': 'Active Savings',
+        'summary_active_loans': 'Active Loans',
+        'summary_recent_tx': 'Recent Transactions',
+        'summary_no_savings': 'No active savings deposits',
+        'summary_no_loans': 'No active loans',
+        'summary_no_tx': 'No transactions yet',
+        'summary_view_all_history': 'View full history',
+        'summary_btn': 'Summary',
 
         # --- SYSTEM PROMPT CHATBOT EN ---
         'system_prompt': '''
