@@ -1,13 +1,16 @@
+# ==============================================================================
+# STYLES.PY - CUSTOM CSS STYLING FOR STREAMLIT APP
+# ==============================================================================
 import base64
 import streamlit as st
 
 MAIN_CSS = """
     <style>
     /* ==============================================================================
-        HỆ THỐNG TIÊU ĐỀ CYBERPUNK: RAINBOW TĨNH (MAIN) & ĐỎ NEON CỐ ĐỊNH (PAGES)
+        CYBERPUNK DESIGN SYSTEM - MAIN STYLING FOR STREAMLIT APP
        ============================================================================== */
     
-    /* A. TIÊU ĐỀ CHÍNH (H1) - GIỮ DẢI MÀU CẦU VỒNG RỰC RỠ (KHÔNG CHẠY ĐỘNG) */
+    /* A. TIÊU ĐỀ CHÍNH (H1) - GIỮ DẢI MÀU CẦU VỒNG RỰC RỠ*/
     h1:has(span),
     h1 span {
         background: linear-gradient(
@@ -83,7 +86,7 @@ MAIN_CSS = """
     }
 
     /* ==============================================================================
-        LỚP 1: ĐỊNH DẠNG MẶC ĐỊNH CHO TẤT CẢ NÚT BẤM (MÀU TÍM NEON CHỦ ĐẠO)
+        ĐỊNH DẠNG MẶC ĐỊNH CHO TẤT CẢ NÚT BẤM (MÀU TÍM NEON CHỦ ĐẠO)
        ============================================================================== */
     div[data-testid="stButton"] button {
         background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
@@ -233,7 +236,7 @@ MAIN_CSS = """
     }
 
     /* ==============================================================================
-        KHÔI PHỤC TOÀN BỘ HIỆU ỨNG POP-OVER CHO CẢ MENU CÀI ĐẶT & NGÔN NGỮ
+        HIỆU ỨNG POP-OVER CHO CẢ MENU CÀI ĐẶT & NGÔN NGỮ
        ============================================================================== */
     
     /* 1. Định dạng khung nền tối và viền mờ cho TẤT CẢ các danh sách xổ xuống */
@@ -297,7 +300,7 @@ MAIN_CSS = """
 
 
     
-        /* ==============================================================================
+    /* ==============================================================================
         HỆ THỐNG KÍCH SÁNG NEON CHO MÃ MÀU CHỮ CỦA STREAMLIT TRONG DIALOG
        ============================================================================== */
     
@@ -342,13 +345,13 @@ MAIN_CSS = """
     </style>
 """
 
-
+# Mã hóa ảnh nền thành base64 để nhúng trực tiếp vào CSS, tránh việc đọc từ đĩa nhiều lần
 @st.cache_data
 def _get_base64_image(image_path):
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
 
-
+# Ảnh nền mặc định của app
 def apply_background_image(image_path: str) -> bool:
     """
     Đọc + encode base64 CHỈ 1 LẦN nhờ cache (thay vì mỗi lần rerun đọc lại từ đĩa
@@ -375,6 +378,6 @@ def apply_background_image(image_path: str) -> bool:
     """, unsafe_allow_html=True)
     return True
 
-
+# Hàm tiện ích để áp dụng CSS chính cho toàn bộ app
 def apply_main_styles():
     st.markdown(MAIN_CSS, unsafe_allow_html=True)

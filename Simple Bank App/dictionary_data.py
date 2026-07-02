@@ -1,4 +1,8 @@
+# ==============================================================================
+# DICTIONARY.PY - ALL TEXTS IN MULTIPLE LANGUAGES FOR STREAMLIT APP
+# ==============================================================================
 DICTIONARY = {
+    # --- VIETNAMESE (VI) ---
     'vi': {
         # --- TIÊU ĐỀ TRANG & ĐIỀU HƯỚNG ---
         'main_title': 'NGÂN HÀNG REYNOLD',
@@ -277,6 +281,7 @@ DICTIONARY = {
             - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
         ''',
     },
+    # --- ENGLISH (EN) ---
     'en': {
         # --- PAGE TITLES & NAVIGATION ---
         'main_title': 'REYNOLD BANK',

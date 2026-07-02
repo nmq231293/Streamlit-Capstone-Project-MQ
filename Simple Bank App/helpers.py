@@ -1,4 +1,7 @@
-import streamlit as st 
+# ==============================================================================
+# HELPERS.PY - COMMON FUNCTIONS AND UTILITIES FOR STREAMLIT APP
+# ==============================================================================
+import streamlit as st
 import gspread
 import pandas as pd
 import time
@@ -14,7 +17,7 @@ import math
 import calendar
 from zoneinfo import ZoneInfo
 
-# Set timezone cho Việt Nam - UTC+7 (vì Streamlit Cloud dùng UTC)
+# --- Set timezone cho Việt Nam - UTC+7 (vì Streamlit Cloud dùng UTC) ---
 VN_TZ = ZoneInfo('Asia/Ho_Chi_Minh')
 
 def now_vn():
@@ -24,7 +27,9 @@ def today_vn():
     return now_vn().date()
 
 
-# Chương trình chatbot trợ lý ảo:
+# =======================================================
+# CHƯƠNG TRÌNH CHATBOT TRỢ LÝ ẢO
+# =======================================================
 def embed_chatbot():
     text = st.session_state.text
     
@@ -48,7 +53,7 @@ def embed_chatbot():
     # 3. Tạo nút bấm trước để lấy label động dựa trên trạng thái
     button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
 
-    # 4. Tính toán thông số CSS dựa trên trạng thái ĐÃ ĐƯỢC CHUẨN HÓA
+    # 4. Tính toán thông số CSS dựa trên trạng thái đã được chuẩn hóa
     is_open = st.session_state.chat_open
     bg_color = "rgba(30, 20, 60, 0.95)" if is_open else "transparent"
     box_shadow = "0px 8px 32px rgba(0, 0, 0, 0.5)" if is_open else "none"
@@ -110,7 +115,7 @@ def embed_chatbot():
                 with chat_history_box:
                     with st.chat_message("user"):
                         st.write(f':green[{user_query.capitalize()}]')
-                st.session_state.messages.append({"role": "user", "content": f':green[{user_query.capitalize()}]'})
+                st.session_state.messages.append({"role": "user", "content": f'{user_query.capitalize()}'})
 
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 with chat_history_box:
@@ -136,33 +141,37 @@ def embed_chatbot():
 
         # 7. Render nút bấm ở cuối container nhưng đã được xử lý callback từ trước
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
-        # Sử dụng on_click giúp trạng thái thay đổi ngay trước khi file rerun, không cần gọi st.rerun() thủ công
+        
+        # 8. Sử dụng on_click giúp trạng thái thay đổi ngay trước khi file rerun, không cần gọi st.rerun() thủ công
         st.button(button_label, key="toggle_chat_btn", type="primary", on_click=toggle_chat)
         st.markdown('</div>', unsafe_allow_html=True)
 
 
+# =======================================================
+# CÁC HÀM XỬ LÝ ĐỌC DỮ LIỆU TỪ GOOGLE SHEETS VÀ CACHE
+# =======================================================
 
-
+# --- Hàm lấy secrets của Google API và lưu vào cache để tránh gọi nhiều lần ---
 @st.cache_resource
 def get_gspread_client():
     credentials_dict = dict(st.secrets["connections"]["gsheets"])
     return gspread.service_account_from_dict(credentials_dict)
 
-
+# --- Hàm lấy file Google Sheet và lưu vào cache ---
 @st.cache_resource
 def get_spreadsheet():
     gc = get_gspread_client()
     spreadsheet_url = st.secrets["connections"]["gsheets"]["toplevel_url"]
     return gc.open_by_url(spreadsheet_url)
 
-# Khởi tạo đọc dữ liệu bank accounts
+# --- Hàm lấy worksheet "bank_account" và lưu vào cache ---
 @st.cache_resource
 def get_bank_account_worksheet():
     sh = get_spreadsheet()
     return sh.worksheet("bank_account")
 
+# --- Hàm tự động chờ và thử lại khi gặp lỗi quota tạm thời (HTTP 429) từ Google Sheets API ---
 def with_quota_retry(func, max_attempts=4, base_delay=2):
-    """Tự động chờ và thử lại khi gặp lỗi quota tạm thời (HTTP 429) từ Google Sheets API."""
     for attempt in range(max_attempts):
         try:
             return func()
@@ -173,6 +182,7 @@ def with_quota_retry(func, max_attempts=4, base_delay=2):
             else:
                 raise
 
+# --- Hàm khởi tạo dataframe từ worksheet, xử lý dữ liệu ---
 def df_init():
     worksheet = get_bank_account_worksheet()
     data = with_quota_retry(lambda: worksheet.get_all_records())
@@ -192,13 +202,11 @@ def df_init():
                     'Is_Locked': 'str'
     })
 
-    # Xử lý dataframe
-
     df['ID'] = pd.Series(f'{x:08}' if str(x).isdigit() else x for x in list(df['ID']))
     df['Phone'] = '0' + df['Phone']
     pd.to_datetime(df['DoB'])
 
-    # Ghi nhớ vị trí dòng THẬT trên Google Sheet (trước khi sắp xếp lại trong bộ nhớ) -
+    # Ghi nhớ vị trí dòng THẬT trên Google Sheet (trước khi sắp xếp lại trong bộ nhớ) - 
     # để các lần ghi sau biết đúng dòng cần sửa, không cần ghi đè cả sheet.
     df['_sheet_row'] = range(2, len(df) + 2)
 
@@ -206,6 +214,7 @@ def df_init():
     df.sort_index(inplace=True)
     return worksheet, df
 
+# --- Hàm lấy snapshot dữ liệu để hiển thị nhanh, chấp nhận trễ tối đa 5 giây ---
 @st.cache_data(ttl=5)
 def get_display_snapshot():
     """
@@ -215,79 +224,14 @@ def get_display_snapshot():
     _, snapshot_df = df_init()
     return snapshot_df
 
+# --- Lấy snapshot dữ liệu lần đầu khi ứng dụng khởi động để kiểm tra login, chuyển tiền, đổi mật khẩu - KHÔNG dùng cache ---
 worksheet, df = df_init()
 
-
+# =======================================================
 # CÁC LOẠI HỘP THOẠI:
-# ==============================================================================
-# 1. HỘP THOẠI BÁO ĐÃ ĐĂNG NHẬP NƠI KHÁC HOẶC HẾT PHIÊN ĐĂNG NHẬP
-# ==============================================================================
-@st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium', dismissible=False)
-def session_expired(reason:str = 'expired'):
-    text = st.session_state.text
+# =======================================================
 
-    if reason == 'expired':
-        session_expired_dialog_title = text['dialog_session_expired']
-        session_expired_dialog_text = text['dialog_session_expired_info']
-    elif reason == 'timeout':
-        session_expired_dialog_title = text['dialog_session_timeout']
-        session_expired_dialog_text = text['dialog_session_timeout_info']        
-    else:
-        session_expired_dialog_title = text['dialog_session_hijacked']
-        session_expired_dialog_text = text['dialog_session_hijacked_info']
-        
-    st.markdown(f"<h1 style='text-align: center; color: #ff5555; margin-top:0;'>⚠️ {session_expired_dialog_title.upper()} ⚠️</h3>", unsafe_allow_html=True)
-    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
-    st.info(session_expired_dialog_text)
-    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
-
-    def invalidate_all_sessions(current_df):
-        if reason == 'expired' or reason == 'timeout':
-            current_df.loc[st.session_state.acc_num, 'Session'] = '0'
-        else:
-            # hijacked -> đăng xuất CẢ máy đang chiếm (Session) và xóa luôn dấu vết cũ (Previous_Session)
-            current_df.loc[st.session_state.acc_num, 'Session'] = '0'
-            current_df.loc[st.session_state.acc_num, 'Previous_Session'] = '0'
-
-    c1, c2, c3 = st.columns([3,3,2])
-    with c1:    
-        if st.button(f'**:green[{text["relogin_button"]}]**', icon='🔑', key="btn_sess_login"):
-            update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
-
-            del st.session_state.session_expired
-            del st.session_state.acc_num
-            del st.session_state.auth_token
-            st.query_params.clear()
-            st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/login.py')
-    
-    with c2:
-        if reason == 'hijacked':
-            if st.button(f'**:green[{text["change_password_button"]}]**', icon='🔓', key="btn_hj_change_pass"):
-                update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
-
-                del st.session_state.session_expired
-                del st.session_state.acc_num
-                del st.session_state.auth_token
-                st.query_params.clear()
-                st.session_state.password_change_need = True
-                st.session_state.previous_page.append(st.session_state.current_page)
-                st.switch_page('pages/account_settings.py')        
-    
-    with c3:
-        if st.button(f'**:red[{text.get('dialog_stay_btn', 'Ở lại trang này')}]**', icon='❗', key="btn_sess_stay"):
-            update_accounts_safely([st.session_state.acc_num], invalidate_all_sessions)
-
-            del st.session_state.session_expired
-            del st.session_state.acc_num
-            del st.session_state.auth_token
-            st.query_params.clear()
-            st.rerun()
-
-
-# ==============================================================================
-# 2. HỘP THOẠI BÁO KHI RỜI NHỮNG TRANG ĐIỀN FORM
-# ==============================================================================
+# --- Lấy tiêu đề cho hộp thoại chuyển trang ---
 def switch_page_dialog_title():
     if 'text' in st.session_state:
         result = st.session_state.text.get('dialog_leave_title', 'Xác nhận rời trang')
@@ -295,6 +239,7 @@ def switch_page_dialog_title():
         result = 'Xác nhận rời trang'
     return result
 
+# --- Hộp thoại xác nhận rời các trang có form ---
 @st.dialog('**:yellow[Thông Báo / Notification]**')
 def switch_page_confirm(page_path, page_trace = True):
     text = st.session_state.text
@@ -322,8 +267,6 @@ def switch_page_confirm(page_path, page_trace = True):
         if st.button(f'**:green[{stay_label}]**'):
             st.rerun()
 
-
-
 # Hàm kiểm tra các trang có form điền để mở hộp thoại thông báo khi rời đi
 def switch_page_check(page_path, page_trace = True):
     check = True
@@ -340,120 +283,15 @@ def switch_page_check(page_path, page_trace = True):
             st.session_state.previous_page.pop(-1)
         st.switch_page(page_path)
 
-
-# Các hàm xử lý dữ liệu nhập form
-
-# Hàm hash mật khẩu mới
-def hash_password(plain_password: str) -> str:
-    return bcrypt.hashpw(plain_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-
-# Hàm kiểm tra xem 1 chuỗi có phải là bcrypt hash hay không (để phân biệt với password cũ dạng plaintext)
-def is_bcrypt_hash(value: str) -> bool:
-    return isinstance(value, str) and value.startswith(('$2b$', '$2a$', '$2y$')) and len(value) == 60
-
-# Hàm kiểm tra mail
-def validate_email(email):
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return bool(re.match(pattern, email))
-
-# Hàm kiểm tra sđt
-def validate_phone(phone):
-    pattern = r'^\+?(0|84)\d{9,10}$'
-    return bool(re.match(pattern, phone))
-
-# Hàm kiểm tra tuổi
-def calculate_age(birth_date):
-    today = datetime.today()
-    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-    return age
-
-# Hàm trả về cùng tham số nếu ID này khả dụng, nếu không sẽ trả một số ID khả dụng nhỏ nhất có thể
-def new_id_check(id):
-    snapshot_df = get_display_snapshot()
-    if id not in snapshot_df.index:
-        return id
-
-    max_random_attempts = 1000
-    for _ in range(max_random_attempts):
-        candidate = f'{random.randint(1, 99999999):08}'
-        if candidate not in snapshot_df.index:
-            return candidate
-
-    for i in range(1, 100000000):
-        if f'{i:08}' not in snapshot_df.index:
-            return f'{i:08}'
-
-    raise RuntimeError("Không còn số tài khoản nào khả dụng trong hệ thống.")
-
-# Nhóm hàm tạo list ID số đẹp
-
-# Hàm kiểm tra ID khả dụng hay không
-def id_available_check(num):
-    snapshot_df = get_display_snapshot()
-    return num not in snapshot_df.index
-
-# Hàm tạo các tổ hợp số đẹp chứa dãy số cho trước
-def id_num_generate(init_num:str, init_choices = [6,8,9]):
-    
-    init_len = len(init_num)
-    spaces_count = 8 - init_len
-    choices = [str(x) for x in init_choices]
-    
-    # Đệ quy khởi tạo bộ số đẹp từ các chữ số trong choices
-    def filler_generate(length):
-        if length == 0:
-            return [[]]
-        sub_combos = filler_generate(length - 1)
-        return [combo + [digit] for combo in sub_combos for digit in choices]
-
-
-    filler_list = filler_generate(spaces_count)
-    
-    # Nhét dãy số cho trước vào các bộ số đã tạo
-    kq = set()
-
-    for filler in filler_list:
-        for i in range(spaces_count + 1):
-
-            temp = filler.copy()
-
-            temp.insert(i, init_num)
-
-            whole_num = "".join(temp)
-            kq.add(whole_num)
-            
-    # Dùng set để lọc số trùng, sau đó chuyển lại thành list và sắp xếp lại
-    return sorted(list(kq))
-
-# Hàm kiểm tra và trả ra list ID số đẹp từ dãy số cho trước, kết quả là list gồm nhiều nhất suggest_num được lấy ngẫu nhiên từ các ID khả dụng
-def new_id_suggest(init_id:str, suggest_num:int):
-    if len(init_id) > 4:
-        good_id = id_num_generate(init_id,[0,1,2,3,4,5,6,7,8,9])
-    else:
-        good_id = id_num_generate(init_id)
-    available_good_id = list(filter(id_available_check, good_id))
-    
-    if len(available_good_id) <= suggest_num:
-        return available_good_id
-    
-    random_good_id = []
-    while len(random_good_id) < suggest_num:
-        chosen_random_id = random.choice(available_good_id)
-        random_good_id.append(chosen_random_id)
-        available_good_id.remove(chosen_random_id)
-        
-    random_good_id.sort()
-    
-    return random_good_id
-
-# ==============================================================================
+# =======================================================
 # CÁC HÀM XUẤT DỮ LIỆU VÀO GOOGLE SHEET
-# ==============================================================================
+# =======================================================
 
+# --- Các cột trong Google Sheet, dùng để xác định thứ tự khi ghi dữ liệu ---
 SHEET_COLUMNS = ['ID', 'Name', 'DoB', 'Phone', 'Email', 'Password', 'Balance',
                 'Session', 'Previous_Session', 'Version', 'Power_Level', 'Is_Locked']
 
-# Hàm chỉnh sửa ô trong google sheet:
+# --- Hàm chỉnh sửa ô trong google sheet ---
 def update_account_rows(worksheet, df, account_ids):
     for acc_id in account_ids:
         row_series = df.loc[acc_id, [c for c in SHEET_COLUMNS if c != 'ID']].copy()
@@ -462,7 +300,7 @@ def update_account_rows(worksheet, df, account_ids):
         sheet_row_number = int(df.loc[acc_id, '_sheet_row'])
         with_quota_retry(lambda rn=f"A{sheet_row_number}", rv=row_values: worksheet.update(range_name=rn, values=[rv]))
         
-# Hàm xuất df ra lại google sheet:
+# --- Hàm xuất df ra lại google sheet ---
 def work_sheet_update(worksheet, df = df_init()):
     
     worksheet.clear()
@@ -479,12 +317,12 @@ def work_sheet_update(worksheet, df = df_init()):
     pd.to_datetime(df['DoB'])
     df.set_index('ID', inplace=True)
 
-# Hàm tạo tài khoản mới
+# --- Lỗi khi tạo tài khoản thất bại vì số tài khoản vừa bị người khác đăng ký trước trong tích tắc ---
 class AccountIdTakenError(Exception):
     """Báo hiệu việc tạo tài khoản thất bại vì số tài khoản vừa bị người khác đăng ký trước trong tích tắc."""
     pass
 
-
+# --- Hàm tạo tài khoản mới ---
 def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
     worksheet, fresh_df = df_init()
 
@@ -495,16 +333,16 @@ def account_signup(stk, ten, ngay_sinh, sdt, email, matkhau, sodu):
                         sodu, '0', '0', 0, 0]
     with_quota_retry(lambda: worksheet.append_row(new_row_values))
     
-# Các thông số cho hàm chuyển khoản:
+# --- Các thông số cho hàm chuyển khoản ---
 MAX_RETRY_ATTEMPTS = 5
 RETRY_BASE_DELAY = 0.2  # giây, tăng dần mỗi lần retry (backoff)
 
-# Tạo lỗi khi ghi nhận thay đổi số dư chuyển khoản thất bại:
+# --- Lỗi khi ghi nhận thay đổi số dư chuyển khoản thất bại ---
 class OptimisticLockError(Exception):
     """Báo hiệu việc ghi thất bại vì version đã bị người khác thay đổi trước."""
     pass
 
-# Hàm kiểm tra phiên bản dòng để tạo giao dịch:
+# --- Hàm kiểm tra phiên bản dòng để tạo giao dịch ---
 def update_accounts_safely(account_ids: list, mutation_function):
     """
     Cập nhật 1 hoặc nhiều dòng tài khoản một cách an toàn dùng optimistic locking.
@@ -546,11 +384,9 @@ def update_accounts_safely(account_ids: list, mutation_function):
 
     raise OptimisticLockError(f"Failed to update accounts {account_ids} after {MAX_RETRY_ATTEMPTS} attempts")
 
+# --- Hàm lấy hoặc tạo worksheet mới với header, cache theo (sheet_name, all_columns_tuple) để tránh gọi API nhiều lần ---
 @st.cache_resource
 def get_or_create_worksheet(sheet_name, all_columns_tuple):
-    """Lấy worksheet theo tên, tự tạo kèm header nếu chưa tồn tại.
-    Cache theo (sheet_name, all_columns_tuple) - chỉ gọi API 'mở sheet' 1 lần duy nhất
-    cho mỗi tên sheet, thay vì mỗi lần đọc/ghi đều gọi lại."""
     sh = get_spreadsheet()
     try:
         return sh.worksheet(sheet_name)
@@ -559,9 +395,8 @@ def get_or_create_worksheet(sheet_name, all_columns_tuple):
         worksheet.append_row(list(all_columns_tuple))
         return worksheet
 
-
+# --- Hàm khởi tạo dataframe từ worksheet phụ (savings, loans...) ---
 def generic_sheet_init(sheet_name, index_col, dtype_map, all_columns):
-    """Phiên bản tổng quát của df_init() - dùng cho sheet phụ (savings, loans...)."""
     worksheet = get_or_create_worksheet(sheet_name, tuple(all_columns))
     data = with_quota_retry(lambda: worksheet.get_all_records())
     df = pd.DataFrame(data) if data else pd.DataFrame(columns=all_columns)
@@ -570,7 +405,7 @@ def generic_sheet_init(sheet_name, index_col, dtype_map, all_columns):
     df.set_index(index_col, inplace=True)
     return worksheet, df
 
-
+# --- Hàm cập nhật nhiều dòng trong worksheet phụ (savings, loans...) ---
 def generic_update_rows(worksheet, df, row_ids, all_columns, index_col):
     for row_id in row_ids:
         row_series = df.loc[row_id, [c for c in all_columns if c != index_col]].copy()
@@ -578,10 +413,8 @@ def generic_update_rows(worksheet, df, row_ids, all_columns, index_col):
         sheet_row_number = int(df.loc[row_id, '_sheet_row'])
         with_quota_retry(lambda rn=f"A{sheet_row_number}", rv=row_values: worksheet.update(range_name=rn, values=[rv]))
 
-
+# --- Hàm cập nhật nhiều dòng trong worksheet phụ (savings, loans...) một cách an toàn dùng optimistic locking ---
 def update_rows_safely(init_function, all_columns, index_col, row_ids, mutation_function):
-    """Phiên bản tổng quát của update_accounts_safely() - dùng optimistic locking
-    cho bất kỳ sheet nào (savings, loans...), không chỉ bank_account."""
     for attempt in range(MAX_RETRY_ATTEMPTS):
         worksheet, fresh_df = init_function()
         versions_before = {row_id: fresh_df.loc[row_id, 'Version'] for row_id in row_ids}
@@ -596,10 +429,11 @@ def update_rows_safely(init_function, all_columns, index_col, row_ids, mutation_
         time.sleep(RETRY_BASE_DELAY * (attempt + 1))
     raise OptimisticLockError(f"Failed to update rows {row_ids} after {MAX_RETRY_ATTEMPTS} attempts")
 
-# ==============================================================================
+# =======================================================
 # GỬI TIẾT KIỆM & VAY TIỀN
-# ==============================================================================
+# =======================================================
 
+# --- Các thông số cột cho dữ liệu tiết kiệm và vay tiền ---
 SAVINGS_COLUMNS = ['Deposit_ID', 'Account_ID', 'Principal', 'Annual_Rate', 'Term_Months',
                     'Start_Date', 'Maturity_Date', 'Status', 'Auto_Renew', 'Version']
 SAVINGS_DTYPES = {'Account_ID': 'str', 'Principal': 'int64', 'Annual_Rate': 'float64',
@@ -617,7 +451,7 @@ LOAN_DTYPES = {
     'Last_Interest_Date': 'str', 'Auto_Pay': 'str', 'Version': 'int64'
 }
 
-# Xóa 'loan' khỏi RATE_TABLE — giờ tất cả khoản vay dùng LOAN_BASE_RATE
+# --- Bảng lãi suất tiết kiệm theo kỳ hạn ---
 RATE_TABLE = {
     1:  {'savings': 0.03},
     3:  {'savings': 0.04},
@@ -628,6 +462,7 @@ RATE_TABLE = {
     36: {'savings': 0.075},
 }
 
+# --- Các thông số cho vay tiền ---
 LOAN_BASE_RATE = 0.10          # 10%/năm — lãi suất ban đầu (cố định 6 tháng đầu)
 LOAN_RATE_TIER_2 = 0.09        # 9%/năm — sau 6 tháng trả đúng hạn
 LOAN_RATE_TIER_3 = 0.08        # 8%/năm — sau 12 tháng trả đúng hạn (sàn vĩnh viễn)
@@ -642,25 +477,25 @@ LOAN_BASE_MAX_AMOUNT = 200000000
 LOAN_MAX_RATIO_OF_SAVINGS = 0.7
 DAYS_PER_MONTH = 30
 
+# --- Hàm khởi tạo dataframe tiết kiệm và vay tiền ---
 def savings_init():
     return generic_sheet_init('savings', 'Deposit_ID', SAVINGS_DTYPES, SAVINGS_COLUMNS)
-
 
 def loans_init():
     return generic_sheet_init('loans', 'Loan_ID', LOAN_DTYPES, LOAN_COLUMNS)
 
+# --- Hàm lưu thông báo flash để hiển thị ngay sau rerun ---
 def flash_success(message_or_key, is_key=True):
-    """Lưu 1 thông báo để hiển thị NGAY SAU rerun - vì st.success()+st.rerun() liên tiếp
-    sẽ làm mất thông báo (rerun xóa UI cũ trước khi người dùng kịp thấy)."""
     st.session_state['_flash_message'] = {'type': 'key' if is_key else 'raw', 'value': message_or_key}
 
-
+# --- Hàm hiển thị thông báo flash nếu có ---
 def show_flash_message():
     text = st.session_state.text
     flash = st.session_state.pop('_flash_message', None)
     if flash:
         st.success(text[flash['value']] if flash['type'] == 'key' else flash['value'])
 
+# --- Hàm ghi nhận giao dịch tiết kiệm ---
 def open_savings_deposit(stk, amount, term_months, auto_renew=False):
     """Mở sổ tiết kiệm MỚI từ người dùng - LUÔN trừ Balance."""
     rate = RATE_TABLE[term_months]['savings']
@@ -680,7 +515,7 @@ def open_savings_deposit(stk, amount, term_months, auto_renew=False):
     log_transaction(stk, TX_SAVINGS_OPEN, amount, reference_id=deposit_id)
     return deposit_id
 
-
+# --- Hàm ghi nhận giao dịch tái tục tiết kiệm sau đáo hạn ---
 def renew_savings_deposit(stk, amount, term_months, auto_renew=True, start_date=None):
     """Tái tục tiết kiệm sau đáo hạn - KHÔNG BAO GIỜ trừ Balance.
     Tiền đã nằm trong hệ thống từ trước, chỉ tạo sổ mới."""
@@ -696,18 +531,21 @@ def renew_savings_deposit(stk, amount, term_months, auto_renew=True, start_date=
     ))
     return deposit_id
 
+# --- Hàm chuyển string 'TRUE'/'FALSE' sang bool ---
 def to_bool(val):
     """Pandas astype('bool') biến string 'FALSE' thành True (non-empty string là truthy)."""
     if isinstance(val, bool):
         return val
     return str(val).strip().upper() in ('TRUE', '1', 'YES')
 
+# --- Hàm bật/tắt tự động tái tục tiết kiệm ---
 def toggle_savings_auto_renew(deposit_id, new_value):
     str_value = 'TRUE' if new_value else 'FALSE'  # ép sang string trước khi ghi
     def apply_toggle(current_df):
         current_df.loc[deposit_id, 'Auto_Renew'] = str_value
     update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], apply_toggle)
 
+# --- Hàm kiểm tra và xử lý các sổ tiết kiệm đã đáo hạn ---
 def settle_matured_savings(stk):
     _, savings_df = savings_init()
     my_deposits = savings_df[(savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')]
@@ -761,8 +599,7 @@ def settle_matured_savings(stk):
 
     return matured_count
 
-
-
+# --- Hàm rút tiết kiệm trước hạn ---
 def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
     
     """Rút tiết kiệm trước hạn - chỉ nhận lại đúng số tiền gốc, mất toàn bộ lãi.
@@ -858,40 +695,36 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
 
     return principal, total_paid_down
 
+# --- Hàm tính tổng số tiền gốc đang gửi tiết kiệm (chỉ tính sổ còn active) ---
 def get_total_active_savings(stk):
-    """Tổng số tiền gốc đang gửi tiết kiệm (chỉ tính sổ còn active) - dùng để tính hạn mức vay."""
     _, savings_df = savings_init()
     my_active = savings_df[(savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')]
     return int(my_active['Principal'].sum()) if not my_active.empty else 0
 
-
+# --- Hàm tính hạn mức vay tối đa dựa trên tổng tiết kiệm đang có ---
 def get_loan_limit(stk):
     """Hạn mức vay tối đa = lớn hơn giữa mức sàn cố định và 70% tổng tiết kiệm đang có."""
     total_savings = get_total_active_savings(stk)
     return max(LOAN_BASE_MAX_AMOUNT, int(total_savings * LOAN_MAX_RATIO_OF_SAVINGS))
 
-
+# --- Hàm tính tổng dư nợ gốc đang vay (active + overdue) ---
 def get_total_active_loans(stk):
-    """Tổng dư nợ gốc đang vay (active + overdue)."""
     _, loans_df = loans_init()
     my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
     return int(my_loans['Principal'].sum()) if not my_loans.empty else 0
 
-# Hàm tính ngày đến hạn trả lãi: ngày 30 hoặc ngày cuối tháng 2 (nếu tháng 2)
+# --- Hàm tính ngày đến hạn trả lãi: ngày 30 hoặc ngày cuối tháng 2 (nếu tháng 2) ---
 def get_interest_due_date(year, month):
-    """Ngày đến hạn trả lãi: ngày 30 hoặc ngày cuối tháng 2."""
     last_day = calendar.monthrange(year, month)[1]
     return date(year, month, min(30, last_day))
 
-
+# --- Hàm tính lãi hàng tháng, làm tròn lên 1000 VNĐ ---
 def calc_monthly_interest(principal, annual_rate):
-    """Lãi hàng tháng = gốc × lãi suất / 12, làm tròn lên 1000 VNĐ."""
     raw = principal * annual_rate / 12
     return max(1000, int(math.ceil(raw / 1000) * 1000))
 
-
+# --- Hàm xác định lãi suất cho khoản vay mới dựa theo tỉ lệ tiết kiệm/vay ---
 def get_current_loan_rate(stk, loan_principal, existing_debt=None):
-    """Xác định lãi suất cho khoản vay MỚI dựa theo tỉ lệ tiết kiệm/vay."""
     if existing_debt is None:
         existing_debt = get_total_active_loans(stk)
     total_savings = get_total_active_savings(stk)
@@ -899,9 +732,8 @@ def get_current_loan_rate(stk, loan_principal, existing_debt=None):
     is_pref = total_savings >= LOAN_PREF_SAVINGS_RATIO * total_after
     return (LOAN_PREFERENTIAL_RATE if is_pref else LOAN_BASE_RATE), is_pref
 
-# Hàm kiểm tra xem rút sổ tiết kiệm có vượt hạn mức vay hay không, trả về thông tin để UI xử lý
+# --- Hàm kiểm tra xem rút sổ tiết kiệm có vượt hạn mức vay hay không, trả về thông tin để UI xử lý ---
 def get_forced_paydown_info(stk, deposit_id):
-    """Kiểm tra xem rút sổ này có vượt giới hạn vay không. Trả về thông tin để UI xử lý."""
     _, savings_df = savings_init()
     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
@@ -932,11 +764,8 @@ def get_forced_paydown_info(stk, deposit_id):
         ]
     }
 
-
+# --- Hàm rút tiết kiệm trước hạn, tự động trả bớt nợ nếu vượt hạn mức ---
 def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
-    """Rút tiết kiệm trước hạn.
-    loans_to_paydown: dict {loan_id: amount} — None thì auto-FIFO.
-    Trả về (principal, total_paid_down)."""
     _, savings_df = savings_init()
     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
@@ -997,13 +826,11 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
     log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
     return principal, total_paid_down
 
-
+# --- Thông số để lưu lịch sử giao dịch trả lãi vay ---
 TX_LOAN_INTEREST_PAID = 'loan_interest_paid'
-# Thêm TX_LOAN_INTEREST_PAID vào ALL_TX_TYPES và TX_NEGATIVE_TYPES
 
-# Hàm tự động trích lãi hàng tháng từ số dư và tiết kiệm, cập nhật ngày trả lãi và bộ đếm thanh toán đúng hạn
+# --- Hàm tự động trích lãi hàng tháng từ số dư và tiết kiệm, cập nhật ngày trả lãi và bộ đếm thanh toán đúng hạn ---
 def settle_monthly_interest(stk):
-    """Tự động xử lý lãi hàng tháng chưa trả. Gọi khi vào trang chủ/trang vay."""
     _, loans_df = loans_init()
     my_loans = loans_df[
         (loans_df['Account_ID'] == stk) &
@@ -1045,9 +872,8 @@ def settle_monthly_interest(stk):
 
     return total_paid
 
-
+# --- Hàm trích lãi từ số dư và tiết kiệm, trả về True nếu thành công, False nếu không đủ tiền ---
 def _deduct_interest(stk, loan_id, amount):
-    """Trừ tiền lãi: số dư → tiết kiệm kỳ hạn ngắn nhất."""
     _, fresh_df = df_init()
     balance = int(fresh_df.loc[stk, 'Balance'])
 
@@ -1103,9 +929,8 @@ def _deduct_interest(stk, loan_id, amount):
     log_transaction(stk, TX_LOAN_INTEREST_PAID, amount, reference_id=loan_id)
     return True
 
-
+# --- Hàm ghi nhận thanh toán lãi vay, cập nhật bộ đếm thanh toán đúng hạn và điều chỉnh lãi suất nếu đủ điều kiện ---
 def _record_interest_payment(loan_id, payment_date, on_time):
-    """Cập nhật bộ đếm thanh toán đúng hạn và điều chỉnh lãi suất nếu đủ điều kiện."""
     _, loans_df = loans_init()
     if loan_id not in loans_df.index:
         return
@@ -1127,7 +952,7 @@ def _record_interest_payment(loan_id, payment_date, on_time):
     except OptimisticLockError:
         pass
 
-
+# --- Hàm khóa tài khoản nếu không đủ tiền trả lãi ---
 def _lock_account(stk):
     def lock(current_df):
         current_df.loc[stk, 'Is_Locked'] = 'TRUE'
@@ -1136,18 +961,18 @@ def _lock_account(stk):
     except OptimisticLockError:
         pass
 
-
+# --- Hàm kiểm tra xem tài khoản có bị khóa hay không ---
 def is_account_locked(stk):
     _, fresh_df = df_init()
     return to_bool(fresh_df.loc[stk, 'Is_Locked'])
 
-
+# --- Hàm bật/tắt tự động trích lãi vay từ số dư ---
 def toggle_loan_auto_pay(loan_id, new_value):
     def apply(current_df):
         current_df.loc[loan_id, 'Auto_Pay'] = 'TRUE' if new_value else 'FALSE'
     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], apply)
 
-
+# --- Hàm lấy thông tin tổng lãi phải trả trong tháng và ngày đến hạn ---
 def get_monthly_interest_summary(stk):
     _, loans_df = loans_init()
     my_loans = loans_df[
@@ -1162,9 +987,8 @@ def get_monthly_interest_summary(stk):
                 for _, r in my_loans.iterrows())
     return {'total': total, 'due_date': due, 'count': len(my_loans)}
 
-
+# --- Hàm cho phép người dùng chủ động trả lãi tháng này từ số dư ---
 def pay_interest_now(stk):
-    """Người dùng chủ động trả lãi tháng này từ số dư."""
     _, loans_df = loans_init()
     my_loans = loans_df[
         (loans_df['Account_ID'] == stk) &
@@ -1188,7 +1012,7 @@ def pay_interest_now(stk):
         _record_interest_payment(loan_id, today, on_time)
     return True, total
 
-# Hàm mở khoản vay mới, trừ tiền vào Balance ngay lập tức, ghi nhận giao dịch
+# --- Hàm mở khoản vay mới, trừ tiền vào Balance ngay lập tức, ghi nhận giao dịch ---
 def open_loan(stk, amount, term_months):
     current_debt = get_total_active_loans(stk)
     loan_limit = get_loan_limit(stk)
@@ -1213,10 +1037,8 @@ def open_loan(stk, amount, term_months):
     log_transaction(stk, TX_LOAN_OPEN, amount, reference_id=loan_id)
     return loan_id, is_preferential
 
-
+# --- Hàm tự động trả nợ các khoản vay đã đến hạn ---
 def settle_matured_loans(stk):
-    """Tự động trả nợ các khoản vay đã đến hạn (nếu đủ tiền) - trừ gốc+lãi từ Balance.
-    Nếu không đủ tiền, chuyển 'overdue' và tiếp tục tự thử ở lần đăng nhập sau."""
     _, loans_df = loans_init()
     my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
     today = today_vn()
@@ -1252,9 +1074,8 @@ def settle_matured_loans(stk):
                     except OptimisticLockError:
                         pass
 
-
+# --- Hàm cho phép người dùng chủ động trả nợ trước hạn ---
 def repay_loan_early(stk, loan_id):
-    """Trả nợ trước hạn - lãi tính theo số ngày thực vay (ít hơn lãi đủ kỳ hạn)."""
     _, loans_df = loans_init()
     loan_row = loans_df.loc[loan_id]
     start = datetime.strptime(loan_row['Start_Date'], '%Y-%m-%d').date()
@@ -1279,6 +1100,8 @@ def repay_loan_early(stk, loan_id):
 # ==============================================================================
 # LỊCH SỬ GIAO DỊCH
 # ==============================================================================
+
+# ---- Hằng số và kiểu dữ liệu cho sheet transactions ---
 TRANSACTION_COLUMNS = ['Transaction_ID', 'Account_ID', 'Type', 'Amount',
                         'Reference_ID', 'Description', 'Timestamp']
 TRANSACTION_DTYPES = {
@@ -1286,7 +1109,7 @@ TRANSACTION_DTYPES = {
     'Reference_ID': 'str', 'Description': 'str', 'Timestamp': 'str'
 }
 
-# Hằng số loại giao dịch - dùng trong code logic, KHÔNG đổi theo ngôn ngữ
+# --- Hằng số loại giao dịch - dùng trong code logic, KHÔNG đổi theo ngôn ngữ ---
 TX_TRANSFER_OUT        = 'transfer_out'
 TX_TRANSFER_IN         = 'transfer_in'
 TX_SAVINGS_OPEN        = 'savings_open'
@@ -1304,17 +1127,18 @@ ALL_TX_TYPES = [
     TX_LOAN_OPEN, TX_LOAN_REPAY_EARLY, TX_LOAN_REPAY_MATURED, TX_LOAN_FORCED_PAYDOWN
 ]
 
-# Loại nào thì số tiền là dương (cộng vào số dư)
+# --- Loại nào thì số tiền là dương (cộng vào số dư) ---
 TX_POSITIVE_TYPES = {TX_TRANSFER_IN, TX_SAVINGS_MATURED, TX_SAVINGS_EARLY, TX_LOAN_OPEN}
-# Loại nào thì số tiền là âm (trừ khỏi số dư)
+# --- Loại nào thì số tiền là âm (trừ khỏi số dư) ---
 TX_NEGATIVE_TYPES = {TX_TRANSFER_OUT, TX_SAVINGS_OPEN, TX_LOAN_REPAY_EARLY,
                     TX_LOAN_REPAY_MATURED, TX_LOAN_FORCED_PAYDOWN}
-# Còn lại (TX_SAVINGS_AUTO_RENEW) là trung tính (số dư không đổi, chỉ ghi nhận sự kiện)
+# --- Còn lại (TX_SAVINGS_AUTO_RENEW) là trung tính (số dư không đổi, chỉ ghi nhận sự kiện) ---
 
+# --- Hàm khởi tạo sheet transactions ---
 def transactions_init():
     return generic_sheet_init('transactions', 'Transaction_ID', TRANSACTION_DTYPES, TRANSACTION_COLUMNS)
 
-
+# --- Hàm ghi nhận 1 giao dịch vào sheet transactions ---
 def log_transaction(acc_id, tx_type, amount, reference_id='', description=''):
     """Ghi 1 dòng lịch sử giao dịch vào sheet transactions.
     Fire-and-forget: nếu thất bại, bắt exception im lặng - không được để log crash giao dịch chính."""
@@ -1328,37 +1152,127 @@ def log_transaction(acc_id, tx_type, amount, reference_id='', description=''):
     except Exception:
         pass
 
+# =======================================================
+# CÁC HÀM XỬ LÝ DỮ LIỆU NHẬP FORM
+# =======================================================
 
-# Hàm chức năng chuyển tiền:
-def money_transfer(sender:str, receiver:str, transfer_amount:int):
-    global worksheet, df
+# --- Hàm hash mật khẩu mới ---
+def hash_password(plain_password: str) -> str:
+    return bcrypt.hashpw(plain_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-    def apply_transfer(current_df):
-        if current_df.loc[sender, 'Balance'] < transfer_amount:
-            raise ValueError("INSUFFICIENT_FUNDS")
-        current_df.loc[sender, 'Balance'] -= transfer_amount
-        current_df.loc[receiver, 'Balance'] += transfer_amount
+# --- Hàm kiểm tra xem 1 chuỗi có phải là bcrypt hash hay không (để phân biệt với password cũ dạng plaintext) ---
+def is_bcrypt_hash(value: str) -> bool:
+    return isinstance(value, str) and value.startswith(('$2b$', '$2a$', '$2y$')) and len(value) == 60
 
-    df = update_accounts_safely([sender, receiver], apply_transfer)
+# --- Hàm kiểm tra mail ---
+def validate_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
 
-    receiver_name = df.loc[receiver, 'Name']
-    sender_name = df.loc[sender, 'Name']
-    log_transaction(sender, TX_TRANSFER_OUT, transfer_amount, reference_id=receiver, description=receiver_name)
-    log_transaction(receiver, TX_TRANSFER_IN, transfer_amount, reference_id=sender, description=sender_name)
+# --- Hàm kiểm tra sđt ---
+def validate_phone(phone):
+    pattern = r'^\+?(0|84)\d{9,10}$'
+    return bool(re.match(pattern, phone))
+
+# --- Hàm kiểm tra tuổi ---
+def calculate_age(birth_date):
+    today = datetime.today()
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    return age
+
+# --- Hàm trả về cùng tham số nếu ID này khả dụng, nếu không sẽ trả một số ID khả dụng nhỏ nhất có thể ---
+def new_id_check(id):
+    snapshot_df = get_display_snapshot()
+    if id not in snapshot_df.index:
+        return id
+
+    max_random_attempts = 1000
+    for _ in range(max_random_attempts):
+        candidate = f'{random.randint(1, 99999999):08}'
+        if candidate not in snapshot_df.index:
+            return candidate
+
+    for i in range(1, 100000000):
+        if f'{i:08}' not in snapshot_df.index:
+            return f'{i:08}'
+
+    raise RuntimeError("Không còn số tài khoản nào khả dụng trong hệ thống.")
+
+# ============================================================
+# NHÓM HÀM TẠO LIST ID SỐ ĐẸP VÀ CHỨC NĂNG ĐĂNG KÝ TÀI KHOẢN
+# ============================================================
+
+# --- Hàm kiểm tra ID khả dụng hay không ---
+def id_available_check(num):
+    snapshot_df = get_display_snapshot()
+    return num not in snapshot_df.index
+
+# --- Hàm tạo các tổ hợp số đẹp chứa dãy số cho trước ---
+def id_num_generate(init_num:str, init_choices = [6,8,9]):
+    
+    init_len = len(init_num)
+    spaces_count = 8 - init_len
+    choices = [str(x) for x in init_choices]
+    
+    # Đệ quy khởi tạo bộ số đẹp từ các chữ số trong choices
+    def filler_generate(length):
+        if length == 0:
+            return [[]]
+        sub_combos = filler_generate(length - 1)
+        return [combo + [digit] for combo in sub_combos for digit in choices]
 
 
-# Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký
+    filler_list = filler_generate(spaces_count)
+    
+    # Nhét dãy số cho trước vào các bộ số đã tạo
+    kq = set()
+
+    for filler in filler_list:
+        for i in range(spaces_count + 1):
+
+            temp = filler.copy()
+
+            temp.insert(i, init_num)
+
+            whole_num = "".join(temp)
+            kq.add(whole_num)
+            
+    # Dùng set để lọc số trùng, sau đó chuyển lại thành list và sắp xếp lại
+    return sorted(list(kq))
+
+# --- Hàm kiểm tra và trả ra list ID số đẹp từ dãy số cho trước, kết quả là list gồm nhiều nhất suggest_num được lấy ngẫu nhiên từ các ID khả dụng ---
+def new_id_suggest(init_id:str, suggest_num:int):
+    if len(init_id) > 4:
+        good_id = id_num_generate(init_id,[0,1,2,3,4,5,6,7,8,9])
+    else:
+        good_id = id_num_generate(init_id)
+    available_good_id = list(filter(id_available_check, good_id))
+    
+    if len(available_good_id) <= suggest_num:
+        return available_good_id
+    
+    random_good_id = []
+    while len(random_good_id) < suggest_num:
+        chosen_random_id = random.choice(available_good_id)
+        random_good_id.append(chosen_random_id)
+        available_good_id.remove(chosen_random_id)
+        
+    random_good_id.sort()
+    
+    return random_good_id
+
+# --- Hàm hỗ trợ gợi ý ID là số ngày sinh nếu khả dụng khi nhập vào form đăng ký ---
 def process_temp_DoB():
     temp_DoB = st.session_state.temp_DoB
     st.session_state.pr_temp_DoB = temp_DoB.strftime('%d/%m/%Y').replace('/', '')
 
 
-# Hằng số nội bộ cho lựa chọn số tài khoản khi đăng ký - KHÔNG đổi theo ngôn ngữ, dùng để so sánh logic an toàn
+# --- Hằng số nội bộ cho lựa chọn số tài khoản khi đăng ký - KHÔNG đổi theo ngôn ngữ, dùng để so sánh logic an toàn ---
 ACC_ID_OPTION_USE_SUGGESTED = '__acc_opt_use_suggested__'
 ACC_ID_OPTION_DEFAULT = '__acc_opt_default__'
 ACC_ID_OPTION_CHANGE = '__acc_opt_change__'
 
-# Form đăng ký tài khoản mới
+# --- Form đăng ký tài khoản mới ---
 def signup_form():
 
     text = st.session_state.text
@@ -1535,8 +1449,11 @@ def signup_form():
         else:
             st.error(text['su_err_recheck'])
 
+# ============================================================
+# NHÓM HÀM XỬ LÝ ĐĂNG NHẬP VÀ TẠO TOKEN SESSION
+# ============================================================
 
-# Hàm kiểm tra đăng nhập. KQ trả về 2 là thành công, 1 là sai mật khẩu, 0 là không tồn tại tài khoản
+# --- Hàm kiểm tra đăng nhập. KQ trả về 2 là thành công, 1 là sai mật khẩu, 0 là không tồn tại tài khoản ---
 def login_check(stk:str, mat_khau:str):
     global worksheet, df
     if stk in df.index:
@@ -1562,11 +1479,12 @@ def login_check(stk:str, mat_khau:str):
     else:
         return 0
 
+# --- Hàm sinh token session ngẫu nhiên ---
 def generate_session_token() -> str:
     """Sinh ra 1 chuỗi ngẫu nhiên an toàn để làm session token"""
     return secrets.token_hex(32)  # 64 ký tự hex, 256 bit entropy
 
-# Form đăng nhập
+# --- Form đăng nhập ---
 def login_form():
     global worksheet, df
     
@@ -1621,50 +1539,34 @@ def login_form():
         st.session_state.wrong_password_count = 0                            
         st.switch_page('pages/password_wrong.py')
 
-# Hàm đăng xuất:
-def logout(cause:str = 'manual'):
-    worksheet, df = df_init()
-
-    if cause == 'manual':
-        # Trả giá trị phiên làm việc trên Google Sheet về '0' để vô hiệu hóa Token cũ vĩnh viễn.
-        df.loc[st.session_state.acc_num, 'Session'] = '0'
-        work_sheet_update(worksheet, df)
-        
-    st.session_state.login_state = False
-    st.session_state.login_noti = False
-    st.session_state.acc_num = ''
-    st.session_state.acc_name = ''
-    st.session_state.session_token = ''
-    st.session_state.power_level = 0
-    st.session_state.receiver_num = ''
-    st.session_state.transfer_amount = 0
-    st.session_state.wrong_password_count = 0
-    st.session_state.transfer_state = 0
-    st.session_state.signup_state = False
-    st.session_state.available_id_list = []
-    st.session_state.password_change_need = False
-    
-    if cause == 'manual':
-        # Làm sạch hoàn toàn thanh URL và điều hướng về trang chủ
-        st.query_params.clear()
-        st.session_state.logout_state = True
-        if st.session_state.current_page != 'pages/home.py':
-            st.session_state.previous_page.append(st.session_state.current_page)
-            st.switch_page('pages/home.py')       
-    else:
-        st.query_params['session_expired'] = cause
-        st.session_state.auth_token = st.query_params['auth_token']
-        st.session_state.logout_state = False
-        st.rerun()
-
-
-
-# Hàm lấy số dư tài khoản
+# --- Hàm lấy số dư tài khoản ---
 def available_balance(stk:str):
     _, fresh_df = df_init()
     return fresh_df.loc[stk, 'Balance']
 
-# Form tạo yêu cầu chuyển tiền
+
+# ============================================================
+# NHÓM HÀM CHỨC NĂNG CHUYỂN TIỀN
+# ============================================================
+
+# --- Hàm chức năng chuyển tiền ---
+def money_transfer(sender:str, receiver:str, transfer_amount:int):
+    global worksheet, df
+
+    def apply_transfer(current_df):
+        if current_df.loc[sender, 'Balance'] < transfer_amount:
+            raise ValueError("INSUFFICIENT_FUNDS")
+        current_df.loc[sender, 'Balance'] -= transfer_amount
+        current_df.loc[receiver, 'Balance'] += transfer_amount
+
+    df = update_accounts_safely([sender, receiver], apply_transfer)
+
+    receiver_name = df.loc[receiver, 'Name']
+    sender_name = df.loc[sender, 'Name']
+    log_transaction(sender, TX_TRANSFER_OUT, transfer_amount, reference_id=receiver, description=receiver_name)
+    log_transaction(receiver, TX_TRANSFER_IN, transfer_amount, reference_id=sender, description=sender_name)
+
+# --- Form tạo yêu cầu chuyển tiền ---
 def money_transfer_form():
     global df
     
@@ -1703,11 +1605,11 @@ def money_transfer_form():
             st.session_state.transfer_content = noi_dung
             st.switch_page('pages/transfer_rehearsal.py')
 
-# Hàm chính chuyển số tiền thành chữ (Tự động nhận diện Tiếng Việt / Tiếng Anh)
+# --- Hàm chính chuyển số tiền thành chữ (Tự động nhận diện Tiếng Việt / Tiếng Anh) ---
 def money_number_to_text(n):
-    # ==============================================================================
+    
     # TRƯỜNG HỢP 1: ĐỌC TIẾNG ANH
-    # ==============================================================================
+    
     if st.session_state.get('lang') == 'en':
         if n == 0:
             return "Zero Vietnamese Dong"
@@ -1741,9 +1643,9 @@ def money_number_to_text(n):
             
         return res_words.strip() + " Vietnamese Dong"
 
-    # ==============================================================================
+
     # TRƯỜNG HỢP 2: ĐỌC TIẾNG VIỆT
-    # ==============================================================================
+
     if n == 0:
         return "Không đồng"
     
@@ -1797,7 +1699,7 @@ def money_number_to_text(n):
     return chuoi_tien.capitalize() + " đồng"
 
 
-# Form xác nhận chuyển tiền
+# --- Form xác nhận chuyển tiền ---
 def transfer_rehearsal():
     global worksheet, df
     
@@ -1864,7 +1766,11 @@ def transfer_rehearsal():
         st.session_state.transfer_state = 0
         st.switch_page('pages/password_wrong.py')
 
-# Form thông tin tài khoản và chỉnh sửa:
+# ============================================================
+# NHÓM HÀM THÔNG TIN TÀI KHOẢN VÀ ĐỔI MẬT KHẨU
+# ============================================================
+
+# --- Form thông tin tài khoản và chỉnh sửa ---
 def account_info(stk):
     global worksheet, df
     worksheet, df = df_init()
@@ -1886,9 +1792,9 @@ def account_info(stk):
     else:
         st.text_input(text['as_lbl_acc_num'], value=stk, disabled=True)
 
-    # ============================================================
+
     # PHẦN 1: THÔNG TIN CÁ NHÂN
-    # ============================================================
+
     st.markdown(f"**:violet[{text['as_section_profile']}]**")
     with st.form('form_account_info', clear_on_submit=False):
         st.text_input(text['su_lbl_name'], value=current_info['Name'], disabled=True)
@@ -1929,9 +1835,9 @@ def account_info(stk):
 
     st.markdown('---')
 
-    # ============================================================
+
     # PHẦN 2: ĐỔI MẬT KHẨU
-    # ============================================================
+
     st.markdown(f"**:violet[{text['as_section_change_pass']}]**")
     with st.form('form_change_password', clear_on_submit=True):
         current_pass = st.text_input(text['as_lbl_current_pass'], type='password', max_chars=24,
