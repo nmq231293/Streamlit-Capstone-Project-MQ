@@ -105,12 +105,10 @@ MAIN_CSS = """
         box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5) !important; 
         transform: translateY(-2px) !important;  
     }
-    
-    # /* Nút Chatbot Trợ lý AI */
-    # div[data-testid="stButton"] button[py-click*="toggle_chat_btn"] {
-    #     background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important; 
-    #     box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4) !important;
-    # }
+
+    /* ==============================================================================
+        ĐỊNH DẠNG NÚT BẤM AI CHATBOT TRỢ LÝ (TONE HỒNG NEON CHỦ ĐẠO)
+       ============================================================================== */    
         /* 1. Trạng thái mặc định của nút Chatbot Trợ lý AI */
     div.st-key-toggle_chat_btn button {
         background: linear-gradient(135deg, #db2777 0%, #f43f5e 100%) !important; /* Hồng cánh sen đậm chuyển sang Hồng cam rực rỡ */
