@@ -51,7 +51,7 @@ def embed_chatbot():
         st.session_state.chat_open = not st.session_state.chat_open
 
     # 3. Tạo nút bấm trước để lấy label động dựa trên trạng thái
-    button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
+    button_label = f"❌ :yellow[{text['AI_chatbot_close_button']}]" if st.session_state.chat_open else f"💬 :yellow[{text['AI_chatbot_title']}]"
 
     # 4. Tính toán thông số CSS dựa trên trạng thái đã được chuẩn hóa
     is_open = st.session_state.chat_open
