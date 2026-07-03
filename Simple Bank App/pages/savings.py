@@ -83,11 +83,12 @@ with hc2:
 
 if st.session_state.get('confirm_withdraw_all'):
     st.warning(text['savings_confirm_withdraw_all'])
+    pass_all = st.text_input(text['savings_lbl_pass_confirm'], type='password',
+                            max_chars=24, key='pass_withdraw_all')
     wa1, wa2 = st.columns(2)
     with wa1:
-        pass_all = st.text_input(text['savings_lbl_pass_confirm'], type='password',
-                                max_chars=24, key='pass_withdraw_all')
-        if st.button(f"**:green[{text['common_confirm']} ✓]**", key='btn_cfm_withdraw_all'):
+        if st.button(f"**:green[{text['common_confirm']}]**",
+                    key='btn_cfm_withdraw_all'):
             if pass_all == '' or login_check(stk, pass_all) != 2:
                 st.error(text['savings_err_pass_wrong'])
             else:
@@ -100,7 +101,8 @@ if st.session_state.get('confirm_withdraw_all'):
                     flash_success('savings_success_early_withdrawn')
                 st.rerun()
     with wa2:
-        if st.button(f"**:red[{text['common_cancel']}]**", key='btn_cancel_withdraw_all'):
+        if st.button(f"**:red[{text['common_cancel']}]**",
+                    key='btn_cancel_withdraw_all'):
             del st.session_state['confirm_withdraw_all']
             st.rerun()
 
@@ -163,7 +165,7 @@ else:
                                             max_chars=24, key=f"pass_wd_{deposit_id}")
                     btn_cfm, btn_cancel = st.columns(2)
                     with btn_cfm:
-                        if st.button(f"**:green[{text['common_confirm']} ✓]**",
+                        if st.button(f"**:green[{text['common_confirm']}]**",
                                     key=f"btn_cfm_wd_{deposit_id}"):
                             if pass_wd == '' or login_check(stk, pass_wd) != 2:
                                 st.error(text['savings_err_pass_wrong'])
@@ -198,7 +200,7 @@ else:
                         )
                         pfc1, pfc2 = st.columns(2)
                         with pfc1:
-                            if st.form_submit_button(f"**:green[{text['common_confirm']} ✓]**"):
+                            if st.form_submit_button(f"**:green[{text['common_confirm']}]**"):
                                 if pass_partial == '' or login_check(stk, pass_partial) != 2:
                                     st.error(text['savings_err_pass_wrong'])
                                 elif partial_amt <= 0 or partial_amt >= int(row['Principal']):
@@ -230,62 +232,136 @@ else:
         info       = pending['info']
         st.markdown('---')
         st.warning(text['loan_paydown_needed'])
-        st.write(text['loan_paydown_total_needed'].format(format(info['excess_debt'], ',')))
+
+        # Hiển thị thông tin cần trả
+        if info.get('pref_excess', 0) > 0:
+            st.info(text['loan_paydown_pref_required'].format(
+                format(info['pref_excess'], ',')))
+
+        st.write(text['loan_paydown_total_needed'].format(format(info['total_excess'], ',')))
 
         mode = st.radio('', [text['loan_paydown_auto'], text['loan_paydown_manual']],
                         key='paydown_mode')
         loans_to_paydown = {}
 
         if mode == text['loan_paydown_auto']:
-            # Lãi cao nhất trước, ưu đãi cuối cùng
-            sorted_loans = sorted(info['loans'],
-                                key=lambda x: x['rate'], reverse=True)
-            remaining = info['excess_debt']
-            for loan in sorted_loans:
-                if remaining <= 0:
+            # Tự động: pref trước (để khôi phục điều kiện), rồi lãi cao nhất
+            pref_remaining = info.get('pref_excess', 0)
+            limit_remaining = info.get('limit_excess', 0)
+
+            # Bước 1: pref loans
+            for loan in info.get('pref_loans', []):
+                if pref_remaining <= 0:
                     break
-                pay = min(remaining, loan['principal'])
+                pay = min(pref_remaining, loan['principal'])
                 loans_to_paydown[loan['loan_id']] = pay
-                remaining -= pay
-            for loan in sorted_loans:
+                pref_remaining -= pay
+
+            # Bước 2: other loans lãi cao nhất
+            for loan in info.get('other_loans', []):
+                if limit_remaining <= 0:
+                    break
+                pay = min(limit_remaining, loan['principal'])
+                loans_to_paydown[loan['loan_id']] = loans_to_paydown.get(loan['loan_id'], 0) + pay
+                limit_remaining -= pay
+
+            # Bước 3: vẫn còn thiếu → tiếp tục pref loans
+            if limit_remaining > 0:
+                for loan in info.get('pref_loans', []):
+                    if limit_remaining <= 0:
+                        break
+                    already = loans_to_paydown.get(loan['loan_id'], 0)
+                    remaining_in_loan = loan['principal'] - already
+                    if remaining_in_loan > 0:
+                        pay = min(limit_remaining, remaining_in_loan)
+                        loans_to_paydown[loan['loan_id']] = already + pay
+                        limit_remaining -= pay
+
+            # Hiển thị kết quả tự động
+            for loan in info.get('pref_loans', []) + info.get('other_loans', []):
                 if loan['loan_id'] in loans_to_paydown:
                     amt = loans_to_paydown[loan['loan_id']]
+                    label = " (ưu đãi)" if loan.get('is_pref') else ""
                     st.caption(text['loan_paydown_caption'].format(
                         format(loan['principal'], ','), loan['start'], format(amt, ',')
-                    ))
-        else:
-            total_sel = 0
-            for loan in info['loans']:
-                ca, cb = st.columns([3, 2])
-                with ca:
-                    rate_pct = loan['rate'] * 100
-                    st.write(f"{format(loan['principal'], ',')} VNĐ · "
-                            f"{rate_pct:.1f}%{text['common_per_year']} · {loan['maturity']}")
-                with cb:
-                    sel = st.number_input(
-                        text['loan_paydown_manual_label'],
-                        min_value=0, max_value=loan['principal'],
-                        step=100000, format='%d', key=f"pd_{loan['loan_id']}"
-                    )
-                    if sel > 0:
-                        loans_to_paydown[loan['loan_id']] = sel
-                        total_sel += sel
-            if total_sel < info['excess_debt']:
-                st.warning(text['loan_paydown_insufficient'].format(
-                    format(total_sel, ','), format(info['excess_debt'], ',')
-                ))
+                    ) + label)
 
+        else:  # Manual mode
+            total_pref_selected = 0
+            total_selected = 0
+            pref_required = info.get('pref_excess', 0)
+
+            # Pref loans — bắt buộc xử lý trước
+            if info.get('pref_loans'):
+                st.markdown(f"**{text['loan_paydown_pref_section']}**")
+                for loan in info['pref_loans']:
+                    ca, cb = st.columns([3, 2])
+                    with ca:
+                        rate_pct = loan['rate'] * 100
+                        st.write(f"🌟 {format(loan['principal'], ',')} VNĐ · "
+                                f"{rate_pct:.1f}%{text['common_per_year']} · {loan['maturity']}")
+                    with cb:
+                        sel = st.number_input(
+                            text['loan_paydown_manual_label'],
+                            min_value=0, max_value=loan['principal'],
+                            step=100000, format='%d', key=f"pd_pref_{loan['loan_id']}"
+                        )
+                        if sel > 0:
+                            loans_to_paydown[loan['loan_id']] = sel
+                            total_pref_selected += sel
+                            total_selected += sel
+
+            # Other loans
+            if info.get('other_loans'):
+                st.markdown(f"**{text['loan_paydown_other_section']}**")
+                for loan in info['other_loans']:
+                    ca, cb = st.columns([3, 2])
+                    with ca:
+                        rate_pct = loan['rate'] * 100
+                        st.write(f"{format(loan['principal'], ',')} VNĐ · "
+                                f"{rate_pct:.1f}%{text['common_per_year']} · {loan['maturity']}")
+                    with cb:
+                        sel = st.number_input(
+                            text['loan_paydown_manual_label'],
+                            min_value=0, max_value=loan['principal'],
+                            step=100000, format='%d', key=f"pd_other_{loan['loan_id']}"
+                        )
+                        if sel > 0:
+                            loans_to_paydown[loan['loan_id']] = sel
+                            total_selected += sel
+
+            # Validation messages
+            if pref_required > 0 and total_pref_selected < pref_required:
+                st.warning(text['loan_paydown_pref_required'].format(
+                    format(pref_required, ',')))
+            if total_selected < info['total_excess']:
+                st.warning(text['loan_paydown_insufficient'].format(
+                    format(total_selected, ','), format(info['total_excess'], ',')))
+
+        # Password + confirm/cancel — layout chuẩn
         pass_pd = st.text_input(text['savings_lbl_pass_confirm'], type='password',
                                 max_chars=24, key='pass_paydown')
         pa, pb = st.columns(2)
         with pa:
-            if st.button(f"**:green[{text['loan_paydown_confirm']} ✓]**",
-                        key='btn_cfm_pd'):
-                total_sel_final = sum(loans_to_paydown.values())
-                if (mode == text['loan_paydown_manual'] and
-                        total_sel_final < info['excess_debt']):
+            if st.button(f"**:green[{text['loan_paydown_confirm']}]**", key='btn_cfm_pd'):
+                # Validate
+                total_pref_val = sum(
+                    loans_to_paydown.get(l['loan_id'], 0)
+                    for l in info.get('pref_loans', [])
+                )
+                pref_ok = (info.get('pref_excess', 0) == 0 or
+                        mode == text['loan_paydown_auto'] or
+                        total_pref_val >= info.get('pref_excess', 0))
+                total_ok = (mode == text['loan_paydown_auto'] or
+                            sum(loans_to_paydown.values()) >= info['total_excess'])
+
+                if not pref_ok:
+                    st.error(text['loan_paydown_pref_required'].format(
+                        format(info.get('pref_excess', 0), ',')))
+                elif not total_ok:
                     st.error(text['loan_paydown_insufficient'].format(
-                        format(total_sel_final, ','), format(info['excess_debt'], ',')
+                        format(sum(loans_to_paydown.values()), ','),
+                        format(info['total_excess'], ',')
                     ))
                 elif pass_pd == '' or login_check(stk, pass_pd) != 2:
                     st.error(text['savings_err_pass_wrong'])

@@ -679,24 +679,31 @@ def partial_repay_loan(stk, loan_id, repay_principal):
 
 # --- Hàm trả lãi cho một khoản vay ---
 def pay_loan_interest(stk, loan_id):
-    """Trả lãi cho MỘT khoản vay cụ thể.
-    Returns: (success, amount_paid)"""
+    """Trả lãi cho MỘT khoản vay cụ thể trong tháng hiện tại.
+    Returns: (success, amount_paid, already_paid)
+      - already_paid=True: tháng này đã trả rồi, không trừ thêm
+    """
     _, loans_df = loans_init()
     if loan_id not in loans_df.index:
-        return False, 0
+        return False, 0, False
+
     row = loans_df.loc[loan_id]
+    if is_interest_paid_this_month(row):
+        return True, 0, True  # Đã trả rồi — không làm gì thêm
+
     interest = calc_monthly_interest(int(row['Principal']), float(row['Current_Rate']))
     today = today_vn()
     due = get_interest_due_date(today.year, today.month)
     on_time = today <= due
     penalty_fee = int(interest * LOAN_LATE_PENALTY_FEE_RATE) if not on_time else 0
     total_to_pay = interest + penalty_fee
+
     success = _deduct_interest(stk, loan_id, total_to_pay)
     if success:
         _record_interest_payment(loan_id, today, on_time)
         if penalty_fee > 0:
             log_transaction(stk, TX_LOAN_INTEREST_PENALTY, penalty_fee, reference_id=loan_id)
-    return success, total_to_pay
+    return success, total_to_pay, False
 
 # --- Hàm ghi nhận thanh toán lãi vay, cập nhật bộ đếm thanh toán đúng hạn và điều chỉnh lãi suất nếu đủ điều kiện ---
 def _record_interest_payment(loan_id, payment_date, on_time):
@@ -812,14 +819,62 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
 
         # Nếu không truyền vào, tự xây FIFO theo excess_principal
         if loans_to_paydown is None:
-            loans_to_paydown = {}
-            remaining = excess_principal
-            for lid, lrow in my_loans.iterrows():
-                if remaining <= 0:
-                    break
-                pay_p = min(remaining, int(lrow['Principal']))
-                loans_to_paydown[lid] = pay_p
-                remaining -= pay_p
+                _, loans_df = loans_init()
+                my_loans = loans_df[
+                    (loans_df['Account_ID'] == stk) &
+                    (loans_df['Status'].isin(['active', 'overdue']))
+                ]
+
+                # Tính lại điều kiện ưu đãi sau khi đóng sổ (savings_init đã cập nhật)
+                _, sav_df = savings_init()
+                total_savings = int(sav_df[
+                    (sav_df['Account_ID'] == stk) & (sav_df['Status'] == 'active')
+                ]['Principal'].sum())
+                new_max_pref = int(total_savings / LOAN_PREF_SAVINGS_RATIO)
+
+                pref_loans = my_loans[
+                    my_loans['Current_Rate'] == LOAN_PREFERENTIAL_RATE
+                ].sort_values('Principal', ascending=False)
+                non_pref_loans = my_loans[
+                    my_loans['Current_Rate'] != LOAN_PREFERENTIAL_RATE
+                ].sort_values('Current_Rate', ascending=False)
+
+                total_pref = int(pref_loans['Principal'].sum()) if not pref_loans.empty else 0
+                pref_excess = max(0, total_pref - new_max_pref)
+
+                loans_to_paydown = {}
+                remaining = excess_principal  # tổng gốc cần trả (từ loan limit)
+
+                # Bước 1: Trả pref loans để thỏa điều kiện ưu đãi (ưu tiên đầu tiên)
+                if pref_excess > 0:
+                    left_pref = pref_excess
+                    for lid, lrow in pref_loans.iterrows():
+                        if left_pref <= 0 or remaining <= 0:
+                            break
+                        pay = min(left_pref, int(lrow['Principal']), remaining)
+                        loans_to_paydown[lid] = pay
+                        left_pref -= pay
+                        remaining -= pay
+
+                # Bước 2: Trả non-pref lãi cao nhất trước
+                for lid, lrow in non_pref_loans.iterrows():
+                    if remaining <= 0:
+                        break
+                    pay = min(remaining, int(lrow['Principal']))
+                    loans_to_paydown[lid] = loans_to_paydown.get(lid, 0) + pay
+                    remaining -= pay
+
+                # Bước 3: Nếu vẫn còn thiếu, trả tiếp pref loans còn lại
+                if remaining > 0:
+                    for lid, lrow in pref_loans.iterrows():
+                        if remaining <= 0:
+                            break
+                        already = loans_to_paydown.get(lid, 0)
+                        can_pay = int(lrow['Principal']) - already
+                        if can_pay > 0:
+                            pay = min(remaining, can_pay)
+                            loans_to_paydown[lid] = already + pay
+                            remaining -= pay
 
         # Xử lý từng khoản vay — dùng calc_loan_repayment để nhất quán với repay_loan_early
         for lid, pay_principal in loans_to_paydown.items():
@@ -999,34 +1054,68 @@ def get_current_loan_rate(stk, loan_principal, existing_debt=None, term_months=N
 
 # --- Hàm kiểm tra xem rút sổ tiết kiệm có vượt hạn mức vay hay không, trả về thông tin để UI xử lý ---
 def get_forced_paydown_info(stk, deposit_id):
+    """Kiểm tra rút sổ này có vi phạm loan limit hoặc điều kiện ưu đãi không.
+    Returns dict với đủ thông tin để UI xử lý cả 2 điều kiện."""
     _, savings_df = savings_init()
     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
-    current_total_savings = get_total_active_savings(stk)
-    new_total_savings = current_total_savings - principal
-    new_limit = max(LOAN_BASE_MAX_AMOUNT, int(new_total_savings * LOAN_MAX_RATIO_OF_SAVINGS))
-    current_debt = get_total_active_loans(stk)
-
-    if current_debt <= new_limit:
-        return {'needs_paydown': False, 'principal': principal, 'new_limit': new_limit}
+    total_savings = int(savings_df[
+        (savings_df['Account_ID'] == stk) &
+        (savings_df['Status'] == 'active')
+    ]['Principal'].sum())
+    new_savings = total_savings - principal
+    new_loan_limit = max(LOAN_BASE_MAX_AMOUNT, int(new_savings * LOAN_MAX_RATIO_OF_SAVINGS))
+    new_max_pref = int(new_savings / LOAN_PREF_SAVINGS_RATIO)
 
     _, loans_df = loans_init()
     my_loans = loans_df[
         (loans_df['Account_ID'] == stk) &
         (loans_df['Status'].isin(['active', 'overdue']))
-    ].sort_values('Start_Date')
+    ]
+
+    if my_loans.empty:
+        return {'needs_paydown': False, 'principal': principal,
+                'new_limit': new_loan_limit, 'pref_excess': 0, 'total_excess': 0}
+
+    total_loans = int(my_loans['Principal'].sum())
+    pref_loans = my_loans[my_loans['Current_Rate'] == LOAN_PREFERENTIAL_RATE]
+    non_pref_loans = my_loans[my_loans['Current_Rate'] != LOAN_PREFERENTIAL_RATE]
+    total_pref = int(pref_loans['Principal'].sum()) if not pref_loans.empty else 0
+
+    # Tính riêng 2 loại excess
+    pref_excess = max(0, total_pref - new_max_pref)
+    # Sau khi trả pref_excess, tổng nợ còn lại
+    total_after_pref = total_loans - pref_excess
+    limit_excess = max(0, total_after_pref - new_loan_limit)
+    total_to_pay = pref_excess + limit_excess
+
+    if total_to_pay == 0:
+        return {'needs_paydown': False, 'principal': principal,
+                'new_limit': new_loan_limit, 'pref_excess': 0, 'total_excess': 0}
+
+    def make_loan_list(df_subset, sort_by='Current_Rate', ascending=False):
+        return [
+            {'loan_id': lid,
+            'principal': int(r['Principal']),
+            'rate': float(r['Current_Rate']),
+            'term': int(r['Term_Months']),
+            'start': r['Start_Date'],
+            'maturity': r['Maturity_Date'],
+            'is_pref': float(r['Current_Rate']) == LOAN_PREFERENTIAL_RATE}
+            for lid, r in df_subset.sort_values(sort_by, ascending=ascending).iterrows()
+        ] if not df_subset.empty else []
 
     return {
         'needs_paydown': True,
         'principal': principal,
-        'new_limit': new_limit,
-        'excess_debt': current_debt - new_limit,
-        'loans': [
-            {'loan_id': lid, 'principal': int(r['Principal']),
-            'rate': float(r['Current_Rate']), 'term': int(r['Term_Months']),
-            'start': r['Start_Date'], 'maturity': r['Maturity_Date']}
-            for lid, r in my_loans.iterrows()
-        ]
+        'new_limit': new_loan_limit,
+        'new_max_pref': new_max_pref,
+        'pref_excess': pref_excess,         # phải trả từ khoản pref
+        'limit_excess': limit_excess,        # phải trả thêm từ khoản khác
+        'total_excess': total_to_pay,        # tổng cần trả
+        'pref_loans': make_loan_list(pref_loans, 'Principal', False),
+        'other_loans': make_loan_list(non_pref_loans, 'Current_Rate', False),
+        'loans': make_loan_list(my_loans, 'Current_Rate', False),  # backward compat
     }
 
 # --- Thông số để lưu lịch sử giao dịch trả lãi vay ---
@@ -1169,10 +1258,46 @@ def get_monthly_interest_summary(stk):
     due = get_interest_due_date(today.year, today.month)
     total = sum(calc_monthly_interest(int(r['Principal']), float(r['Current_Rate']))
                 for _, r in my_loans.iterrows())
-    return {'total': total, 'due_date': due, 'count': len(my_loans)}
+    all_paid = all(is_interest_paid_this_month(row) for _, row in my_loans.iterrows())
+    per_loan_paid = {lid: is_interest_paid_this_month(row)
+                    for lid, row in my_loans.iterrows()}
+    return {
+        'total': total,
+        'due_date': due,
+        'count': len(my_loans),
+        'all_paid': all_paid,
+        'per_loan_paid': per_loan_paid,
+    }
+
+# --- Hàm kiểm tra xem 1 khoản vay đã trả lãi tháng hiện tại chưa ---
+def is_interest_paid_this_month(loan_row):
+    """Kiểm tra 1 khoản vay đã trả lãi tháng hiện tại chưa.
+    Dùng Last_Interest_Date để so sánh năm-tháng với hôm nay."""
+    last_str = str(loan_row.get('Last_Interest_Date', '')).strip()
+    if not last_str or last_str in ('', 'nan', 'None'):
+        return False
+    try:
+        last_date = datetime.strptime(last_str, '%Y-%m-%d').date()
+        today = today_vn()
+        return last_date.year == today.year and last_date.month == today.month
+    except Exception:
+        return False
+
+# --- Hàm kiểm tra xem tất cả khoản vay của user đã trả lãi tháng hiện tại chưa ---
+def is_all_interest_paid_this_month(stk):
+    """Kiểm tra TẤT CẢ khoản vay của user đã trả lãi tháng này chưa."""
+    _, loans_df = loans_init()
+    my_loans = loans_df[
+        (loans_df['Account_ID'] == stk) &
+        (loans_df['Status'].isin(['active', 'overdue']))
+    ]
+    if my_loans.empty:
+        return True
+    return all(is_interest_paid_this_month(row) for _, row in my_loans.iterrows())
 
 # --- Hàm cho phép người dùng chủ động trả lãi tháng này từ số dư ---
 def pay_interest_now(stk):
+    """Trả lãi tháng này cho TẤT CẢ khoản vay chưa trả trong tháng."""
     _, loans_df = loans_init()
     my_loans = loans_df[
         (loans_df['Account_ID'] == stk) &
@@ -1180,20 +1305,37 @@ def pay_interest_now(stk):
     ]
     if my_loans.empty:
         return True, 0
+
     today = today_vn()
     due = get_interest_due_date(today.year, today.month)
     on_time = today <= due
-    total = sum(calc_monthly_interest(int(r['Principal']), float(r['Current_Rate']))
-                for _, r in my_loans.iterrows())
+
+    # Chỉ tính tổng cho các khoản CHƯA trả
+    unpaid_loans = [(lid, row) for lid, row in my_loans.iterrows()
+                    if not is_interest_paid_this_month(row)]
+    if not unpaid_loans:
+        return True, 0  # Tất cả đã trả rồi
+
+    total = sum(
+        calc_monthly_interest(int(r['Principal']), float(r['Current_Rate'])) +
+        (int(calc_monthly_interest(int(r['Principal']), float(r['Current_Rate'])) *
+            LOAN_LATE_PENALTY_FEE_RATE) if not on_time else 0)
+        for _, r in unpaid_loans
+    )
+
     _, fresh_df = df_init()
     if int(fresh_df.loc[stk, 'Balance']) < total:
         return False, total
-    for loan_id, row in my_loans.iterrows():
+
+    for loan_id, row in unpaid_loans:
         interest = calc_monthly_interest(int(row['Principal']), float(row['Current_Rate']))
-        success = _deduct_interest(stk, loan_id, interest)
+        penalty = int(interest * LOAN_LATE_PENALTY_FEE_RATE) if not on_time else 0
+        success = _deduct_interest(stk, loan_id, interest + penalty)
         if not success:
             return False, total
         _record_interest_payment(loan_id, today, on_time)
+        if penalty > 0:
+            log_transaction(stk, TX_LOAN_INTEREST_PENALTY, penalty, reference_id=loan_id)
     return True, total
 
 # --- Hàm tính tiền trả khoản vay

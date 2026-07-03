@@ -214,26 +214,34 @@ DICTIONARY = {
         'loan_split_pref_part': 'Phần ưu đãi {} VNĐ — {}%/năm',
         'loan_split_standard_part': 'Phần thường {} VNĐ — {}%/năm',
         'loan_split_max_pref': 'Mức tối đa được ưu đãi hiện tại: {} VNĐ',
-        'loan_split_confirm': '✓ Xác nhận vay tách 2 phần',
+        'loan_split_confirm': 'Xác nhận vay tách 2 phần',
         'loan_split_adjust': 'Điều chỉnh số tiền',
 
         # Thông tin lãi suất
         'loan_rate_info_btn': 'ℹ️ Chính sách lãi suất',
         'loan_rate_info_title': 'Chính sách lãi suất vay',
         'loan_rate_info_base': '**Lãi suất cơ bản theo kỳ hạn:**',
-        'loan_rate_info_tiers': '''**Ưu đãi tích lũy (trả lãi đúng hạn):**
-                                    - Sau 6 tháng liên tiếp: giảm 0.5%/năm
-                                    - Sau 12 tháng liên tiếp: giảm thêm 0.5%/năm (tổng -1%)
-                                    - Ưu đãi đặc biệt 6%/năm: tiết kiệm ≥ 2× tổng dư nợ (không áp tier)''',
-        'loan_rate_info_penalty': '''**Phạt trễ hạn trả lãi** (ngày 30 mỗi tháng, hoặc 28/29 tháng 2):
-                                    - Mất ưu đãi tích lũy (đếm lại từ đầu)
-                                    - Lãi suất tăng +1.5%/năm (tối đa 25%/năm)
-                                    - Phí phạt bằng 2% số lãi trễ hạn''',
-        'loan_rate_info_overdue': '''**Quá hạn trả gốc:**
-                                    - Lãi suất tăng lên mức phạt 25%/năm ngay lập tức
-                                    - Hệ thống tự động thử trừ tiền mỗi lần đăng nhập
-                                    - Tài khoản bị khóa nếu không đủ tiền sau nhiều lần thử''',
-        'loan_penalty_notice': '⚠️ Khoản vay quá hạn — lãi suất phạt 25%/năm đang áp dụng',
+        'loan_interest_already_paid': '✅ Đã trả lãi tháng này',
+        'loan_interest_this_loan_paid': 'Đã trả lãi tháng này',
+
+        'loan_rate_info_tiers_header': 'Ưu đãi tích lũy (trả lãi đúng hạn)',
+        'loan_rate_info_tiers_1': 'Sau 6 tháng liên tiếp trả đúng hạn: giảm 0.5%/năm',
+        'loan_rate_info_tiers_2': 'Sau 12 tháng liên tiếp: giảm thêm 0.5%/năm (tổng -1%)',
+        'loan_rate_info_tiers_3': 'Ưu đãi đặc biệt 6%/năm: tiết kiệm ≥ 2× tổng dư nợ (không áp tier)',
+
+        'loan_rate_info_penalty_header': 'Phạt trễ hạn trả lãi (ngày 30 mỗi tháng, hoặc 28/29 tháng 2)',
+        'loan_rate_info_penalty_1': 'Mất ưu đãi tích lũy (đếm lại từ đầu)',
+        'loan_rate_info_penalty_2': 'Lãi suất tăng +1.5%/năm (tối đa 25%/năm)',
+        'loan_rate_info_penalty_3': 'Phí phạt bằng 2% số lãi trễ hạn',
+
+        'loan_rate_info_overdue_header': 'Quá hạn trả gốc',
+        'loan_rate_info_overdue_1': 'Lãi suất tăng lên mức phạt 25%/năm ngay lập tức',
+        'loan_rate_info_overdue_2': 'Hệ thống tự động thử trừ tiền mỗi lần đăng nhập',
+        'loan_rate_info_overdue_3': 'Tài khoản bị khóa nếu không đủ tiền sau nhiều lần thử',
+
+        'loan_paydown_pref_section': 'Khoản vay ưu đãi (cần điều chỉnh trước)',
+        'loan_paydown_pref_required': 'Phải giảm tối thiểu {} VNĐ từ khoản vay ưu đãi để duy trì điều kiện 6%/năm',
+        'loan_paydown_other_section': 'Khoản vay khác',
         'loan_lbl_monthly_interest_short': 'Lãi/tháng',
         'loan_lbl_current_limit': 'Hạn mức vay hiện tại',
         'loan_err_limit_exceeded': 'Số tiền vay vượt quá hạn mức cho phép',
@@ -267,7 +275,7 @@ DICTIONARY = {
         'loan_interest_insufficient': 'Không đủ tiền trong tài khoản. Hệ thống sẽ tự động trừ từ tiết kiệm khi đến hạn.',
         'account_locked_notice': '⚠️ Tài khoản tạm khóa do không thể thanh toán lãi vay. Vui lòng nạp tiền và liên hệ hỗ trợ.',
         'loan_paydown_needed': 'Rút sổ này sẽ làm giảm hạn mức vay. Chọn khoản vay cần giảm hoặc để hệ thống tự chọn:',
-        'loan_paydown_auto': '🤖 Tự động (khoản vay cũ nhất trước)',
+        'loan_paydown_auto': '🤖 Tự động',
         'loan_paydown_manual': '✏️ Tôi muốn tự chọn',
         'loan_paydown_total_needed': 'Cần giảm tổng nợ: {} VNĐ',
         'loan_paydown_confirm': 'Xác nhận rút và giảm nợ',
@@ -539,25 +547,34 @@ DICTIONARY = {
         'loan_split_pref_part': 'Preferential part {} VND — {}%/year',
         'loan_split_standard_part': 'Standard part {} VND — {}%/year',
         'loan_split_max_pref': 'Current maximum preferential amount: {} VND',
-        'loan_split_confirm': '✓ Confirm split loan',
+        'loan_split_confirm': 'Confirm split loan',
         'loan_split_adjust': 'Adjust amount',
 
         # Rate info
         'loan_rate_info_btn': 'ℹ️ Rate Policy',
         'loan_rate_info_title': 'Loan Rate Policy',
         'loan_rate_info_base': '**Base rates by term:**',
-        'loan_rate_info_tiers': '''**Loyalty tiers (on-time interest payments):**
-                                    - After 6 consecutive months: -0.5%/year
-                                    - After 12 consecutive months: additional -0.5%/year (total -1%)
-                                    - Special 6%/year rate: savings ≥ 2× total loans (tier not applied)''',
-        'loan_rate_info_penalty': '''**Late interest penalty** (due on 30th of each month, or last day of Feb):
-                                    - Lose all accumulated loyalty discounts (resets to 0)
-                                    - Rate increases by +1.5%/year (capped at 25%/year)
-                                    - Penalty fee: 2% of the overdue interest amount''',
-        'loan_rate_info_overdue': '''**Overdue principal:**
-                                    - Rate immediately jumps to 25%/year penalty rate
-                                    - System auto-deducts on each login attempt
-                                    - Account locked if unable to pay after multiple attempts''',
+        'loan_interest_already_paid': '✅ Interest paid this month',
+        'loan_interest_this_loan_paid': 'Interest paid this month',
+
+        'loan_rate_info_tiers_header': 'Loyalty tiers (on-time interest payments)',
+        'loan_rate_info_tiers_1': 'After 6 consecutive on-time months: -0.5%/year',
+        'loan_rate_info_tiers_2': 'After 12 consecutive months: additional -0.5%/year (total -1%)',
+        'loan_rate_info_tiers_3': 'Special 6%/year rate: savings ≥ 2× total loans (tier not applied)',
+
+        'loan_rate_info_penalty_header': 'Late interest penalty (due on 30th, or last day of Feb)',
+        'loan_rate_info_penalty_1': 'Lose all accumulated loyalty discounts (resets to 0)',
+        'loan_rate_info_penalty_2': 'Rate increases by +1.5%/year (capped at 25%/year)',
+        'loan_rate_info_penalty_3': 'Penalty fee: 2% of the overdue interest amount',
+
+        'loan_rate_info_overdue_header': 'Overdue principal',
+        'loan_rate_info_overdue_1': 'Rate immediately jumps to 25%/year penalty rate',
+        'loan_rate_info_overdue_2': 'System auto-deducts on each login attempt',
+        'loan_rate_info_overdue_3': 'Account locked if unable to pay after multiple attempts',
+
+        'loan_paydown_pref_section': 'Preferential loans (must be adjusted first)',
+        'loan_paydown_pref_required': 'Must reduce at least {} VND from preferential loans to maintain 6%/year condition',
+        'loan_paydown_other_section': 'Other loans',
         'loan_penalty_notice': '⚠️ Overdue loan — 25%/year penalty rate is being applied',
         'loan_lbl_monthly_interest_short': 'Monthly interest',
         'loan_lbl_current_limit': 'Current loan limit',
@@ -592,7 +609,7 @@ DICTIONARY = {
         'loan_interest_insufficient': 'Insufficient balance. System will auto-deduct from savings when due.',
         'account_locked_notice': '⚠️ Account locked due to inability to pay loan interest. Please add funds and contact support.',
         'loan_paydown_needed': 'Withdrawing this savings deposit will reduce your loan limit. Select loans to pay down:',
-        'loan_paydown_auto': '🤖 Auto-select (oldest loan first)',
+        'loan_paydown_auto': '🤖 Auto-select',
         'loan_paydown_manual': '✏️ I want to choose manually',
         'loan_paydown_total_needed': 'Total debt reduction needed: {} VND',
         'loan_paydown_confirm': 'Confirm withdrawal and debt reduction',
