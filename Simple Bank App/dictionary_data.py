@@ -182,13 +182,58 @@ DICTIONARY = {
         'savings_lbl_auto_renew': 'Tự động tái tục khi đáo hạn (gộp lãi vào gốc)',
         'savings_forced_paydown_notice': 'Hệ thống đã tự động trích {} VNĐ từ số tiền rút để trả bớt khoản vay (do hạn mức vay giảm theo số dư tiết kiệm mới).',
         'savings_err_no_term': 'Vui lòng chọn kỳ hạn trước khi gửi tiết kiệm',
+        'savings_btn_withdraw_full': 'Rút hết',
+        'savings_btn_withdraw_partial': 'Rút một phần',
+        'savings_lbl_partial_amount': 'Số tiền muốn rút (VNĐ)',
+        'savings_err_partial_invalid': 'Số tiền phải lớn hơn 0 và nhỏ hơn số tiền gốc',
+        'savings_btn_withdraw_all_deposits': 'Rút tất cả sổ tiết kiệm',
+        'savings_confirm_withdraw_all': 'Rút tất cả sổ tiết kiệm đang hoạt động? Không tính lãi.',
         
+                
         'common_month_unit': 'tháng',
         'common_cancel': 'Hủy',
         'common_status': 'Trạng thái',
         'common_per_year': '/năm',
-        'common_rate_label': 'Lãi suất',
+        'common_rate_label': 'Lãi suất',      
         
+        
+        # Trả vay
+        'loan_btn_repay_full': 'Trả hết',
+        'loan_btn_repay_minimum': 'Trả lãi tháng',
+        'loan_btn_repay_partial': 'Trả một phần',
+        'loan_lbl_partial_principal': 'Số tiền GỐC muốn trả (VNĐ)',
+        'loan_err_partial_invalid': 'Số tiền phải lớn hơn 0 và nhỏ hơn số gốc còn lại',
+        'loan_btn_repay_all_loans': 'Trả tất cả khoản vay',
+        'loan_confirm_repay_all': 'Trả toàn bộ các khoản vay đang hoạt động? Bao gồm lãi theo ngày thực vay.',
+        'loan_repay_all_result': 'Đã trả {} khoản vay, tổng {} VNĐ. {} khoản không đủ tiền.',
+        'loan_minimum_interest_label': 'Lãi tháng này',
+        'loan_minimum_interest_hint': 'Trả đúng phần lãi của khoản vay này trong tháng hiện tại.',
+
+        # Tách khoản vay
+        'loan_split_notice': '⚠️ Số tiền vay vượt mức được ưu đãi. Khoản vay sẽ được tách thành 2 phần:',
+        'loan_split_pref_part': 'Phần ưu đãi {} VNĐ — {}%/năm',
+        'loan_split_standard_part': 'Phần thường {} VNĐ — {}%/năm',
+        'loan_split_max_pref': 'Mức tối đa được ưu đãi hiện tại: {} VNĐ',
+        'loan_split_confirm': '✓ Xác nhận vay tách 2 phần',
+        'loan_split_adjust': 'Điều chỉnh số tiền',
+
+        # Thông tin lãi suất
+        'loan_rate_info_btn': 'ℹ️ Chính sách lãi suất',
+        'loan_rate_info_title': 'Chính sách lãi suất vay',
+        'loan_rate_info_base': '**Lãi suất cơ bản theo kỳ hạn:**',
+        'loan_rate_info_tiers': '''**Ưu đãi tích lũy (trả lãi đúng hạn):**
+                                    - Sau 6 tháng liên tiếp: giảm 0.5%/năm
+                                    - Sau 12 tháng liên tiếp: giảm thêm 0.5%/năm (tổng -1%)
+                                    - Ưu đãi đặc biệt 6%/năm: tiết kiệm ≥ 2× tổng dư nợ (không áp tier)''',
+        'loan_rate_info_penalty': '''**Phạt trễ hạn trả lãi** (ngày 30 mỗi tháng, hoặc 28/29 tháng 2):
+                                    - Mất ưu đãi tích lũy (đếm lại từ đầu)
+                                    - Lãi suất tăng +1.5%/năm (tối đa 25%/năm)
+                                    - Phí phạt bằng 2% số lãi trễ hạn''',
+        'loan_rate_info_overdue': '''**Quá hạn trả gốc:**
+                                    - Lãi suất tăng lên mức phạt 25%/năm ngay lập tức
+                                    - Hệ thống tự động thử trừ tiền mỗi lần đăng nhập
+                                    - Tài khoản bị khóa nếu không đủ tiền sau nhiều lần thử''',
+        'loan_penalty_notice': '⚠️ Khoản vay quá hạn — lãi suất phạt 25%/năm đang áp dụng',
         'loan_lbl_monthly_interest_short': 'Lãi/tháng',
         'loan_lbl_current_limit': 'Hạn mức vay hiện tại',
         'loan_err_limit_exceeded': 'Số tiền vay vượt quá hạn mức cho phép',
@@ -461,12 +506,59 @@ DICTIONARY = {
         'savings_forced_paydown_notice': 'The system automatically deducted {} VND from your withdrawal to pay down a loan (loan limit decreased along with your new savings balance).',
         'savings_err_no_term': 'Please select a term before opening savings',
         
+        # Savings withdrawal
+        'savings_btn_withdraw_full': 'Withdraw all',
+        'savings_btn_withdraw_partial': 'Withdraw partial',
+        'savings_lbl_partial_amount': 'Amount to withdraw (VND)',
+        'savings_err_partial_invalid': 'Amount must be greater than 0 and less than the principal',
+        'savings_btn_withdraw_all_deposits': 'Withdraw all savings',
+        'savings_confirm_withdraw_all': 'Withdraw all active savings deposits? No interest will be paid.',
+        
+        
         'common_month_unit': 'mo.',
         'common_cancel': 'Cancel',
         'common_status': 'Status',
         'common_per_year': '/year',
         'common_rate_label': 'Interest rate',
-        
+
+
+        # Loan repayment
+        'loan_btn_repay_full': 'Repay all',
+        'loan_btn_repay_minimum': 'Pay interest',
+        'loan_btn_repay_partial': 'Repay partial',
+        'loan_lbl_partial_principal': 'Principal amount to repay (VND)',
+        'loan_err_partial_invalid': 'Amount must be greater than 0 and less than remaining principal',
+        'loan_btn_repay_all_loans': 'Repay all loans',
+        'loan_confirm_repay_all': 'Repay all active loans including accrued interest?',
+        'loan_repay_all_result': 'Repaid {} loans, total {} VND. {} loans had insufficient funds.',
+        'loan_minimum_interest_label': "This month's interest",
+        'loan_minimum_interest_hint': "Pay only the interest portion for this loan for the current month.",
+
+        # Split loan
+        'loan_split_notice': '⚠️ Loan amount exceeds preferential limit. It will be split into 2 parts:',
+        'loan_split_pref_part': 'Preferential part {} VND — {}%/year',
+        'loan_split_standard_part': 'Standard part {} VND — {}%/year',
+        'loan_split_max_pref': 'Current maximum preferential amount: {} VND',
+        'loan_split_confirm': '✓ Confirm split loan',
+        'loan_split_adjust': 'Adjust amount',
+
+        # Rate info
+        'loan_rate_info_btn': 'ℹ️ Rate Policy',
+        'loan_rate_info_title': 'Loan Rate Policy',
+        'loan_rate_info_base': '**Base rates by term:**',
+        'loan_rate_info_tiers': '''**Loyalty tiers (on-time interest payments):**
+                                    - After 6 consecutive months: -0.5%/year
+                                    - After 12 consecutive months: additional -0.5%/year (total -1%)
+                                    - Special 6%/year rate: savings ≥ 2× total loans (tier not applied)''',
+        'loan_rate_info_penalty': '''**Late interest penalty** (due on 30th of each month, or last day of Feb):
+                                    - Lose all accumulated loyalty discounts (resets to 0)
+                                    - Rate increases by +1.5%/year (capped at 25%/year)
+                                    - Penalty fee: 2% of the overdue interest amount''',
+        'loan_rate_info_overdue': '''**Overdue principal:**
+                                    - Rate immediately jumps to 25%/year penalty rate
+                                    - System auto-deducts on each login attempt
+                                    - Account locked if unable to pay after multiple attempts''',
+        'loan_penalty_notice': '⚠️ Overdue loan — 25%/year penalty rate is being applied',
         'loan_lbl_monthly_interest_short': 'Monthly interest',
         'loan_lbl_current_limit': 'Current loan limit',
         'loan_err_limit_exceeded': 'Loan amount exceeds your allowed limit',

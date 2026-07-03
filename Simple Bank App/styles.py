@@ -106,10 +106,29 @@ MAIN_CSS = """
         transform: translateY(-2px) !important;  
     }
     
-    /* Nút Chatbot Trợ lý AI */
-    div[data-testid="stButton"] button[py-click*="toggle_chat_btn"] {
-        background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important; 
-        box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4) !important;
+    # /* Nút Chatbot Trợ lý AI */
+    # div[data-testid="stButton"] button[py-click*="toggle_chat_btn"] {
+    #     background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important; 
+    #     box-shadow: 0 4px 15px rgba(6, 182, 212, 0.4) !important;
+    # }
+        /* 1. Trạng thái mặc định của nút Chatbot Trợ lý AI */
+    div.st-key-toggle_chat_btn button {
+        background: linear-gradient(135deg, #db2777 0%, #f43f5e 100%) !important; /* Hồng cánh sen đậm chuyển sang Hồng cam rực rỡ */
+        color: #ffffff !important;               
+        border-radius: 12px !important;          
+        border: 1px solid rgba(244, 63, 94, 0.25) !important; /* Viền hồng mờ */
+        font-weight: 600 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 15px rgba(219, 39, 119, 0.4) !important; /* Đổ bóng phát sáng màu hồng neon */
+        transition: all 0.3s ease-in-out !important;
+    }
+    
+    /* 2. Hiệu ứng Hover rực rỡ khi di chuột vào nút Chatbot Trợ lý AI */
+    div.st-key-toggle_chat_btn button:hover {
+        background: linear-gradient(135deg, #be185d 0%, #e11d48 100%) !important; /* Tông hồng sẫm sâu sắc và quyến rũ hơn */
+        color: #ffffff !important;               
+        box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6) !important; /* Tăng cường độ phát sáng Cyber */
+        transform: translateY(-2px) !important;  /* Nút nảy nhẹ lên trên 2px */
     }
 
     /* ==============================================================================
