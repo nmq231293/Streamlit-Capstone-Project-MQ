@@ -1,10 +1,13 @@
+# ==============================================================================
+# AUTH.PY - AUTHENTICATION AND SESSION MANAGEMENT MODULE
+# ==============================================================================
 import streamlit as st
 import time
 from itsdangerous import URLSafeSerializer, BadSignature
 
 from helpers import df_init, update_accounts_safely, OptimisticLockError
 
-
+# --- Hàm đăng xuất người dùng, xóa trạng thái đăng nhập và chuyển hướng về trang chủ hoặc trang đăng nhập ---
 def logout(cause: str = 'manual'):
     if cause == 'manual':
         def invalidate_session(current_df):
@@ -39,7 +42,7 @@ def logout(cause: str = 'manual'):
         st.session_state.logout_state = False
         st.rerun()
 
-
+# --- Hộp thoại cảnh báo khi phiên đăng nhập hết hạn (60p), không hoạt động (10p) hoặc bị đăng nhập từ thiết bị khác ---
 @st.dialog('**:yellow[Cảnh Báo / Warning]**', width='medium', dismissible=False)
 def session_expired(reason: str = 'expired'):
     text = st.session_state.text
@@ -97,7 +100,10 @@ def session_expired(reason: str = 'expired'):
             st.query_params.clear()
             st.rerun()
 
-
+# =================================================================================
+# Hàm khôi phục trạng thái đăng nhập từ auth_token trên URL, xác thực và xử lý
+# các trường hợp hết hạn, không hoạt động hoặc bị đăng nhập từ thiết bị khác
+# =================================================================================
 def restore_login_session(df):
     """
     Đọc auth_token trên URL, xác thực, và khôi phục trạng thái đăng nhập vào session_state.

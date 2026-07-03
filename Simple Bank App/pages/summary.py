@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
-from helpers import (available_balance, savings_init, loans_init,
-                      transactions_init, TX_TRANSFER_IN, TX_TRANSFER_OUT,
-                      TX_POSITIVE_TYPES, TX_NEGATIVE_TYPES)
+from helpers import (available_balance, savings_init, loans_init, to_bool,
+                    transactions_init, TX_TRANSFER_IN, TX_TRANSFER_OUT,
+                    TX_POSITIVE_TYPES, TX_NEGATIVE_TYPES)
 
 if not st.session_state.login_state:
     st.switch_page('pages/home.py')
@@ -66,7 +66,13 @@ _, loans_df = loans_init()
 my_loans = loans_df[(loans_df['Account_ID'] == stk) & (loans_df['Status'].isin(['active', 'overdue']))]
 
 with col_sav:
-    st.markdown(f"**:violet[{text['summary_active_savings']}]**")
+    hc1, hc2 = st.columns([3, 1])
+    with hc1:
+        st.markdown(f"**:violet[{text['summary_active_savings']}]**")
+    with hc2:
+        if st.button(f"🏦 {text['deposit_title']} →", key='go_savings'):
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.switch_page('pages/savings.py')
     if my_savings.empty:
         st.info(text['summary_no_savings'])
     else:
@@ -74,13 +80,19 @@ with col_sav:
             with st.container(border=True):
                 st.markdown('<div class="finance-card-marker"></div>', unsafe_allow_html=True)
                 st.markdown(f":green[**{format(int(row['Principal']), ',')} VNĐ**]")
-                st.caption(f"{row['Term_Months']} tháng · {row['Annual_Rate']*100:.2f}%/năm")
+                st.caption(f"{row['Term_Months']} {text['common_month_unit']} · {row['Annual_Rate']*100:.2f}%{text['common_per_year']}")
                 st.caption(f"📅 {row['Start_Date']} → {row['Maturity_Date']}")
-                if bool(row['Auto_Renew']):
-                    st.caption("🔄 Tự động tái tục")
+                if to_bool(row['Auto_Renew']):
+                    st.caption(f"🔄 {text['savings_lbl_auto_renew']}")
 
 with col_loan:
-    st.markdown(f"**:violet[{text['summary_active_loans']}]**")
+    hc1, hc2 = st.columns([3, 1])
+    with hc1:
+        st.markdown(f"**:violet[{text['summary_active_loans']}]**")
+    with hc2:
+        if st.button(f"💳 {text['withdraw_title']} →", key='go_loans'):
+            st.session_state.previous_page.append(st.session_state.current_page)
+            st.switch_page('pages/loans.py')
     if my_loans.empty:
         st.info(text['summary_no_loans'])
     else:
@@ -90,10 +102,10 @@ with col_loan:
                 is_overdue = row['Status'] == 'overdue'
                 color = 'orange' if is_overdue else 'red'
                 st.markdown(f":{color}[**{format(int(row['Principal']), ',')} VNĐ**]")
-                st.caption(f"{row['Term_Months']} tháng · {row['Annual_Rate']*100:.2f}%/năm")
+                st.caption(f"{row['Term_Months']} {text['common_month_unit']} · {row['Current_Rate']*100:.2f}%{text['common_per_year']}")
                 st.caption(f"📅 {row['Start_Date']} → {row['Maturity_Date']}")
                 if is_overdue:
-                    st.caption("⚠️ Quá hạn")
+                    st.caption(f"⚠️ {text['loan_lbl_status_overdue']}")
 
 st.markdown('---')
 

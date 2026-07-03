@@ -1,4 +1,8 @@
+# ==============================================================================
+# DICTIONARY.PY - ALL TEXTS IN MULTIPLE LANGUAGES FOR STREAMLIT APP
+# ==============================================================================
 DICTIONARY = {
+    # --- VIETNAMESE (VI) ---
     'vi': {
         # --- TIÊU ĐỀ TRANG & ĐIỀU HƯỚNG ---
         'main_title': 'NGÂN HÀNG REYNOLD',
@@ -177,7 +181,68 @@ DICTIONARY = {
         'savings_success_early_withdrawn': 'Đã rút tiền tiết kiệm trước hạn (không có lãi)',
         'savings_lbl_auto_renew': 'Tự động tái tục khi đáo hạn (gộp lãi vào gốc)',
         'savings_forced_paydown_notice': 'Hệ thống đã tự động trích {} VNĐ từ số tiền rút để trả bớt khoản vay (do hạn mức vay giảm theo số dư tiết kiệm mới).',
+        'savings_err_no_term': 'Vui lòng chọn kỳ hạn trước khi gửi tiết kiệm',
+        'savings_btn_withdraw_full': 'Rút hết',
+        'savings_btn_withdraw_partial': 'Rút một phần',
+        'savings_lbl_partial_amount': 'Số tiền muốn rút (VNĐ)',
+        'savings_err_partial_invalid': 'Số tiền phải lớn hơn 0 và nhỏ hơn số tiền gốc',
+        'savings_btn_withdraw_all_deposits': 'Rút tất cả sổ tiết kiệm',
+        'savings_confirm_withdraw_all': 'Rút tất cả sổ tiết kiệm đang hoạt động? Không tính lãi.',
+        
+                
+        'common_month_unit': 'tháng',
+        'common_cancel': 'Hủy',
+        'common_status': 'Trạng thái',
+        'common_per_year': '/năm',
+        'common_rate_label': 'Lãi suất',      
+        
+        
+        # Trả vay
+        'loan_btn_repay_full': 'Trả hết',
+        'loan_btn_repay_minimum': 'Trả lãi tháng',
+        'loan_btn_repay_partial': 'Trả một phần',
+        'loan_lbl_partial_principal': 'Số tiền GỐC muốn trả (VNĐ)',
+        'loan_err_partial_invalid': 'Số tiền phải lớn hơn 0 và nhỏ hơn số gốc còn lại',
+        'loan_btn_repay_all_loans': 'Trả tất cả khoản vay',
+        'loan_confirm_repay_all': 'Trả toàn bộ các khoản vay đang hoạt động? Bao gồm lãi theo ngày thực vay.',
+        'loan_repay_all_result': 'Đã trả {} khoản vay, tổng {} VNĐ. {} khoản không đủ tiền.',
+        'loan_minimum_interest_label': 'Lãi tháng này',
+        'loan_minimum_interest_hint': 'Trả đúng phần lãi của khoản vay này trong tháng hiện tại.',
 
+        # Tách khoản vay
+        'loan_split_notice': '⚠️ Số tiền vay vượt mức được ưu đãi. Khoản vay sẽ được tách thành 2 phần:',
+        'loan_split_pref_part': 'Phần ưu đãi {} VNĐ — {}%/năm',
+        'loan_split_standard_part': 'Phần thường {} VNĐ — {}%/năm',
+        'loan_split_max_pref': 'Mức tối đa được ưu đãi hiện tại: {} VNĐ',
+        'loan_split_confirm': 'Xác nhận vay tách 2 phần',
+        'loan_split_adjust': 'Điều chỉnh số tiền',
+
+        # Thông tin lãi suất
+        'loan_rate_info_btn': 'ℹ️ Chính sách lãi suất',
+        'loan_rate_info_title': 'Chính sách lãi suất vay',
+        'loan_rate_info_base': '**Lãi suất cơ bản theo kỳ hạn:**',
+        'loan_interest_already_paid': '✅ Đã trả lãi tháng này',
+        'loan_interest_this_loan_paid': 'Đã trả lãi tháng này',
+
+        'loan_rate_info_tiers_header': 'Ưu đãi tích lũy (trả lãi đúng hạn)',
+        'loan_rate_info_tiers_1': 'Sau 6 tháng liên tiếp trả đúng hạn: giảm 0.5%/năm',
+        'loan_rate_info_tiers_2': 'Sau 12 tháng liên tiếp: giảm thêm 0.5%/năm (tổng -1%)',
+        'loan_rate_info_tiers_3': 'Ưu đãi đặc biệt 6%/năm: tiết kiệm ≥ 2× tổng dư nợ (không áp tier)',
+
+        'loan_rate_info_penalty_header': 'Phạt trễ hạn trả lãi (ngày 30 mỗi tháng, hoặc 28/29 tháng 2)',
+        'loan_rate_info_penalty_1': 'Mất ưu đãi tích lũy (đếm lại từ đầu)',
+        'loan_rate_info_penalty_2': 'Lãi suất tăng +1.5%/năm (tối đa 25%/năm)',
+        'loan_rate_info_penalty_3': 'Phí phạt bằng 2% số lãi trễ hạn',
+
+        'loan_rate_info_overdue_header': 'Quá hạn trả gốc',
+        'loan_rate_info_overdue_1': 'Lãi suất tăng lên mức phạt 25%/năm ngay lập tức',
+        'loan_rate_info_overdue_2': 'Hệ thống tự động thử trừ tiền mỗi lần đăng nhập',
+        'loan_rate_info_overdue_3': 'Tài khoản bị khóa nếu không đủ tiền sau nhiều lần thử',
+
+        'loan_paydown_pref_section': 'Khoản vay ưu đãi (cần điều chỉnh trước)',
+        'loan_paydown_pref_required': 'Phải giảm tối thiểu {} VNĐ từ khoản vay ưu đãi để duy trì điều kiện 6%/năm',
+        'loan_paydown_other_section': 'Khoản vay khác',
+        'loan_lbl_monthly_interest_short': 'Lãi/tháng',
         'loan_lbl_current_limit': 'Hạn mức vay hiện tại',
         'loan_err_limit_exceeded': 'Số tiền vay vượt quá hạn mức cho phép',
         'loan_section_open': 'Vay tiền mới',
@@ -196,6 +261,29 @@ DICTIONARY = {
         'loan_success_repaid': 'Đã trả nợ thành công',
         'loan_notice_overdue': '⚠️ Quý khách có khoản vay quá hạn do số dư không đủ để tự động trả. Hệ thống sẽ tiếp tục thử ở các lần đăng nhập sau.',
         'common_confirm': 'Xác nhận',
+        'loan_err_no_term': 'Vui lòng chọn kỳ hạn vay trước khi xác nhận',
+        'loan_rate_base': 'Lãi suất: 10%/năm (cố định 6 tháng đầu)',
+        'loan_rate_preferential': '🎉 Ưu đãi đặc biệt: Lãi suất chỉ 6%/năm vì tiết kiệm của bạn ≥ 2× tổng khoản vay!',
+        'loan_rate_tier2_hint': 'Còn {} tháng trả đúng hạn để giảm xuống 9%/năm',
+        'loan_rate_tier3_hint': 'Còn {} tháng trả đúng hạn để đạt mức sàn 8%/năm',
+        'loan_rate_tier3_reached': '🏆 Đạt lãi suất tích lũy thấp nhất: 8%/năm',
+        'loan_monthly_interest': 'Lãi hàng tháng phải trả',
+        'loan_interest_due_date': 'Ngày đến hạn',
+        'loan_auto_pay': 'Tự động trả lãi hàng tháng',
+        'loan_pay_now': 'Trả lãi tháng này',
+        'loan_interest_paid_success': 'Đã trả lãi thành công: {} VNĐ',
+        'loan_interest_insufficient': 'Không đủ tiền trong tài khoản. Hệ thống sẽ tự động trừ từ tiết kiệm khi đến hạn.',
+        'account_locked_notice': '⚠️ Tài khoản tạm khóa do không thể thanh toán lãi vay. Vui lòng nạp tiền và liên hệ hỗ trợ.',
+        'loan_paydown_needed': 'Rút sổ này sẽ làm giảm hạn mức vay. Chọn khoản vay cần giảm hoặc để hệ thống tự chọn:',
+        'loan_paydown_auto': '🤖 Tự động',
+        'loan_paydown_manual': '✏️ Tôi muốn tự chọn',
+        'loan_paydown_total_needed': 'Cần giảm tổng nợ: {} VNĐ',
+        'loan_paydown_confirm': 'Xác nhận rút và giảm nợ',
+        'loan_paydown_insufficient': 'Số tiền chọn giảm ({} VNĐ) chưa đủ — cần ít nhất {} VNĐ',
+        'tx_loan_interest_paid': '💰 Trả lãi vay',
+        'loan_paydown_caption': '· Vay {} VNĐ ({}) → giảm {} VNĐ',
+        'loan_paydown_manual_label': 'Giảm (VNĐ)',
+        'loan_rate_promotion': 'Lãi suất ưu đãi: 6%/năm',
         
         # --- LỊCH SỬ GIAO DỊCH ---
         'history_title': 'Lịch sử giao dịch',
@@ -246,6 +334,7 @@ DICTIONARY = {
             - Nếu người dùng hỏi các vấn đề ngoài phạm vi ứng dụng, hãy khéo léo từ chối và hướng họ quay lại chủ đề chính.
         ''',
     },
+    # --- ENGLISH (EN) ---
     'en': {
         # --- PAGE TITLES & NAVIGATION ---
         'main_title': 'REYNOLD BANK',
@@ -423,7 +512,71 @@ DICTIONARY = {
         'savings_success_early_withdrawn': 'Savings withdrawn early (no interest)',
         'savings_lbl_auto_renew': 'Auto-renew at maturity (interest compounds into principal)',
         'savings_forced_paydown_notice': 'The system automatically deducted {} VND from your withdrawal to pay down a loan (loan limit decreased along with your new savings balance).',
+        'savings_err_no_term': 'Please select a term before opening savings',
         
+        # Savings withdrawal
+        'savings_btn_withdraw_full': 'Withdraw all',
+        'savings_btn_withdraw_partial': 'Withdraw partial',
+        'savings_lbl_partial_amount': 'Amount to withdraw (VND)',
+        'savings_err_partial_invalid': 'Amount must be greater than 0 and less than the principal',
+        'savings_btn_withdraw_all_deposits': 'Withdraw all savings',
+        'savings_confirm_withdraw_all': 'Withdraw all active savings deposits? No interest will be paid.',
+        
+        
+        'common_month_unit': 'mo.',
+        'common_cancel': 'Cancel',
+        'common_status': 'Status',
+        'common_per_year': '/year',
+        'common_rate_label': 'Interest rate',
+
+
+        # Loan repayment
+        'loan_btn_repay_full': 'Repay all',
+        'loan_btn_repay_minimum': 'Pay interest',
+        'loan_btn_repay_partial': 'Repay partial',
+        'loan_lbl_partial_principal': 'Principal amount to repay (VND)',
+        'loan_err_partial_invalid': 'Amount must be greater than 0 and less than remaining principal',
+        'loan_btn_repay_all_loans': 'Repay all loans',
+        'loan_confirm_repay_all': 'Repay all active loans including accrued interest?',
+        'loan_repay_all_result': 'Repaid {} loans, total {} VND. {} loans had insufficient funds.',
+        'loan_minimum_interest_label': "This month's interest",
+        'loan_minimum_interest_hint': "Pay only the interest portion for this loan for the current month.",
+
+        # Split loan
+        'loan_split_notice': '⚠️ Loan amount exceeds preferential limit. It will be split into 2 parts:',
+        'loan_split_pref_part': 'Preferential part {} VND — {}%/year',
+        'loan_split_standard_part': 'Standard part {} VND — {}%/year',
+        'loan_split_max_pref': 'Current maximum preferential amount: {} VND',
+        'loan_split_confirm': 'Confirm split loan',
+        'loan_split_adjust': 'Adjust amount',
+
+        # Rate info
+        'loan_rate_info_btn': 'ℹ️ Rate Policy',
+        'loan_rate_info_title': 'Loan Rate Policy',
+        'loan_rate_info_base': '**Base rates by term:**',
+        'loan_interest_already_paid': '✅ Interest paid this month',
+        'loan_interest_this_loan_paid': 'Interest paid this month',
+
+        'loan_rate_info_tiers_header': 'Loyalty tiers (on-time interest payments)',
+        'loan_rate_info_tiers_1': 'After 6 consecutive on-time months: -0.5%/year',
+        'loan_rate_info_tiers_2': 'After 12 consecutive months: additional -0.5%/year (total -1%)',
+        'loan_rate_info_tiers_3': 'Special 6%/year rate: savings ≥ 2× total loans (tier not applied)',
+
+        'loan_rate_info_penalty_header': 'Late interest penalty (due on 30th, or last day of Feb)',
+        'loan_rate_info_penalty_1': 'Lose all accumulated loyalty discounts (resets to 0)',
+        'loan_rate_info_penalty_2': 'Rate increases by +1.5%/year (capped at 25%/year)',
+        'loan_rate_info_penalty_3': 'Penalty fee: 2% of the overdue interest amount',
+
+        'loan_rate_info_overdue_header': 'Overdue principal',
+        'loan_rate_info_overdue_1': 'Rate immediately jumps to 25%/year penalty rate',
+        'loan_rate_info_overdue_2': 'System auto-deducts on each login attempt',
+        'loan_rate_info_overdue_3': 'Account locked if unable to pay after multiple attempts',
+
+        'loan_paydown_pref_section': 'Preferential loans (must be adjusted first)',
+        'loan_paydown_pref_required': 'Must reduce at least {} VND from preferential loans to maintain 6%/year condition',
+        'loan_paydown_other_section': 'Other loans',
+        'loan_penalty_notice': '⚠️ Overdue loan — 25%/year penalty rate is being applied',
+        'loan_lbl_monthly_interest_short': 'Monthly interest',
         'loan_lbl_current_limit': 'Current loan limit',
         'loan_err_limit_exceeded': 'Loan amount exceeds your allowed limit',
         'loan_section_open': 'Take out a new loan',
@@ -442,7 +595,30 @@ DICTIONARY = {
         'loan_success_repaid': 'Loan repaid successfully',
         'loan_notice_overdue': '⚠️ You have an overdue loan due to insufficient balance for auto-repayment. The system will keep retrying on future logins.',
         'common_confirm': 'Confirm',
-    
+        'loan_err_no_term': 'Please select a loan term before confirming',
+        'loan_rate_base': 'Rate: 10%/year (fixed for first 6 months)',
+        'loan_rate_preferential': '🎉 Special rate: 6%/year because your savings ≥ 2× total loans!',
+        'loan_rate_tier2_hint': '{} more on-time months to reach 9%/year',
+        'loan_rate_tier3_hint': '{} more on-time months to reach 8%/year (permanent floor)',
+        'loan_rate_tier3_reached': '🏆 Achieved minimum accumulated rate: 8%/year',
+        'loan_monthly_interest': 'Monthly interest due',
+        'loan_interest_due_date': 'Due date',
+        'loan_auto_pay': 'Auto-pay monthly interest',
+        'loan_pay_now': 'Pay this month\'s interest',
+        'loan_interest_paid_success': 'Interest paid successfully: {} VND',
+        'loan_interest_insufficient': 'Insufficient balance. System will auto-deduct from savings when due.',
+        'account_locked_notice': '⚠️ Account locked due to inability to pay loan interest. Please add funds and contact support.',
+        'loan_paydown_needed': 'Withdrawing this savings deposit will reduce your loan limit. Select loans to pay down:',
+        'loan_paydown_auto': '🤖 Auto-select',
+        'loan_paydown_manual': '✏️ I want to choose manually',
+        'loan_paydown_total_needed': 'Total debt reduction needed: {} VND',
+        'loan_paydown_confirm': 'Confirm withdrawal and debt reduction',
+        'loan_paydown_insufficient': 'Selected amount ({} VND) is insufficient — need at least {} VND',
+        'tx_loan_interest_paid': '💰 Loan Interest Payment',
+        'loan_paydown_caption': '· Loan {} VND ({}) → reduce {} VND',
+        'loan_paydown_manual_label': 'Reduce (VND)',
+        'loan_rate_promotion': 'Promotional rate: 6%/year',
+        
         # --- TRANSACTION HISTORY ---
         'history_title': 'Transaction History',
         'history_filter_type': 'Transaction type',
