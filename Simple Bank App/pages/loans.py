@@ -7,7 +7,8 @@ from helpers import (available_balance, login_check, settle_matured_loans,
                     pay_interest_now, toggle_loan_auto_pay, is_account_locked,
                     get_current_loan_rate, check_loan_split,
                     calc_monthly_interest, today_vn, get_interest_due_date,
-                    to_bool, LOAN_MIN_AMOUNT, LOAN_RATE_TABLE,
+                    to_bool, is_interest_paid_this_month, is_all_interest_paid_this_month,
+                    LOAN_MIN_AMOUNT, LOAN_RATE_TABLE,
                     LOAN_PREFERENTIAL_RATE, LOAN_RATE_FLOOR, LOAN_PENALTY_RATE,
                     ON_TIME_FOR_TIER_2, ON_TIME_FOR_TIER_3,
                     LOAN_TIER2_REDUCTION, LOAN_TIER3_REDUCTION,
@@ -51,52 +52,69 @@ if summary:
         f"{format(summary['total'], ',')} VNĐ · "
         f"{text['loan_interest_due_date']}: {due.strftime('%d/%m/%Y')}**]"
     )
-    show_pay_key = 'show_pay_interest_confirm'
-    if not st.session_state.get(show_pay_key):
-        if st.button(text['loan_pay_now'], icon='💳', key='btn_pay_interest'):
-            st.session_state[show_pay_key] = True
-            st.rerun()
+
+    if summary['all_paid']:
+        st.success(text['loan_interest_already_paid'])
     else:
-        with st.form('form_pay_interest_confirm', clear_on_submit=True):
-            st.warning(f"{text['loan_monthly_interest']}: "
-                    f"**{format(summary['total'], ',')} VNĐ**")
-            pass_interest = st.text_input(text['savings_lbl_pass_confirm'],
-                                        type='password', max_chars=24)
-            pi1, pi2 = st.columns(2)
-            with pi1:
-                if st.form_submit_button(f"**:green[{text['common_confirm']} ✓]**"):
-                    if pass_interest == '' or login_check(stk, pass_interest) != 2:
-                        st.error(text['savings_err_pass_wrong'])
-                    else:
-                        ok, total = pay_interest_now(stk)
+        show_pay_key = 'show_pay_interest_confirm'
+        if not st.session_state.get(show_pay_key):
+            if st.button(text['loan_pay_now'], icon='💳', key='btn_pay_interest'):
+                st.session_state[show_pay_key] = True
+                st.rerun()
+        else:
+            with st.form('form_pay_interest_confirm', clear_on_submit=True):
+                st.warning(f"{text['loan_monthly_interest']}: "
+                        f"**{format(summary['total'], ',')} VNĐ**")
+                pass_interest = st.text_input(text['savings_lbl_pass_confirm'],
+                                            type='password', max_chars=24)
+                pi1, pi2 = st.columns(2)
+                with pi1:
+                    if st.form_submit_button(f"**:green[{text['common_confirm']}]**"):
+                        if pass_interest == '' or login_check(stk, pass_interest) != 2:
+                            st.error(text['savings_err_pass_wrong'])
+                        else:
+                            ok, total = pay_interest_now(stk)
+                            del st.session_state[show_pay_key]
+                            flash_success(
+                                text['loan_interest_paid_success'].format(format(total, ',')),
+                                is_key=False
+                            ) if ok else flash_success(text['loan_interest_insufficient'], is_key=False)
+                            st.rerun()
+                with pi2:
+                    if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
                         del st.session_state[show_pay_key]
-                        flash_success(
-                            text['loan_interest_paid_success'].format(format(total, ',')),
-                            is_key=False
-                        ) if ok else flash_success(
-                            text['loan_interest_insufficient'], is_key=False)
                         st.rerun()
-            with pi2:
-                if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
-                    del st.session_state[show_pay_key]
-                    st.rerun()
+                        
 
 # Rate info dialog
-@st.dialog('📋 Loan Rate Policy / Chính Sách Lãi Suất', width='large')
+@st.dialog(f"📋 Loan Rate Policy / Chính Sách Lãi Suất", width='large')
 def loan_rate_info_dialog():
-    d_text = st.session_state.text
-    st.markdown(d_text['loan_rate_info_base'])
-    for term, rate in LOAN_RATE_TABLE.items():
-        st.caption(f"· {term} {d_text['common_month_unit']}: "
-                f"**{rate*100:.1f}%{d_text['common_per_year']}**")
-    st.markdown('---')
-    st.markdown(d_text['loan_rate_info_tiers'])
-    st.markdown('---')
-    st.markdown(d_text['loan_rate_info_penalty'])
-    st.markdown('---')
-    st.markdown(d_text['loan_rate_info_overdue'])
+    d = st.session_state.text
 
-if st.button(text['loan_rate_info_btn'], key='btn_rate_info'):
+    st.markdown(f"**:violet[{d['loan_rate_info_base']}]**")
+    for term, rate in LOAN_RATE_TABLE.items():
+        st.markdown(f"- {term} {d['common_month_unit']}: "
+                    f"**{rate*100:.1f}%{d['common_per_year']}**")
+
+    st.divider()
+    st.markdown(f"**:violet[{d['loan_rate_info_tiers_header']}]**:")
+    st.markdown(f"- {d['loan_rate_info_tiers_1']}")
+    st.markdown(f"- {d['loan_rate_info_tiers_2']}")
+    st.markdown(f"- {d['loan_rate_info_tiers_3']}")
+
+    st.divider()
+    st.markdown(f"**:violet[{d['loan_rate_info_penalty_header']}]**")
+    st.markdown(f"- {d['loan_rate_info_penalty_1']}")
+    st.markdown(f"- {d['loan_rate_info_penalty_2']}")
+    st.markdown(f"- {d['loan_rate_info_penalty_3']}")
+
+    st.divider()
+    st.markdown(f"**:violet[{d['loan_rate_info_overdue_header']}]**")
+    st.markdown(f"- {d['loan_rate_info_overdue_1']}")
+    st.markdown(f"- {d['loan_rate_info_overdue_2']}")
+    st.markdown(f"- {d['loan_rate_info_overdue_3']}")
+
+if st.button(f"**:orange[{text['loan_rate_info_btn']}]**", key='btn_rate_info'):
     loan_rate_info_dialog()
 
 st.markdown(f"**:violet[{text['loan_section_open']}]**")
@@ -149,7 +167,7 @@ if st.session_state.get('loan_split_pending'):
 
 else:
     # Loan form
-    with st.form('form_open_loan', clear_on_submit=False):
+    with st.form('form_open_loan', clear_on_submit=True):
         amount = st.number_input(
             text['loan_lbl_amount'],
             min_value=LOAN_MIN_AMOUNT,
@@ -227,11 +245,11 @@ with lh2:
 
 if st.session_state.get('confirm_repay_all'):
     st.warning(text['loan_confirm_repay_all'])
+    pass_repay_all = st.text_input(text['savings_lbl_pass_confirm'], type='password',
+                                max_chars=24, key='pass_repay_all')
     ra1, ra2 = st.columns(2)
     with ra1:
-        pass_repay_all = st.text_input(text['savings_lbl_pass_confirm'], type='password',
-                                        max_chars=24, key='pass_repay_all')
-        if st.button(f"**:green[{text['common_confirm']} ✓]**", key='btn_cfm_repay_all'):
+        if st.button(f"**:green[{text['common_confirm']}]**", key='btn_cfm_repay_all'):
             if pass_repay_all == '' or login_check(stk, pass_repay_all) != 2:
                 st.error(text['savings_err_pass_wrong'])
             else:
@@ -329,7 +347,7 @@ else:
                                             key=f"pass_full_{loan_id}")
                     cf1, cf2 = st.columns(2)
                     with cf1:
-                        if st.button(f"**:green[{text['common_confirm']} ✓]**",
+                        if st.button(f"**:green[{text['common_confirm']}]**",
                                     key=f"btn_cfm_full_{loan_id}"):
                             if pass_f == '' or login_check(stk, pass_f) != 2:
                                 st.error(text['savings_err_pass_wrong'])
@@ -349,32 +367,43 @@ else:
 
                 # Form trả tối thiểu (lãi tháng)
                 if st.session_state.get(show_min):
-                    monthly = calc_monthly_interest(principal, rate)
-                    st.info(f"{text['loan_minimum_interest_label']}: "
-                            f"**{format(monthly, ',')} VNĐ**")
-                    st.caption(text['loan_minimum_interest_hint'])
-                    pass_m = st.text_input(text['savings_lbl_pass_confirm'],
-                                            type='password', max_chars=24,
-                                            key=f"pass_min_{loan_id}")
-                    cm1, cm2 = st.columns(2)
-                    with cm1:
-                        if st.button(f"**:green[{text['common_confirm']} ✓]**",
-                                    key=f"btn_cfm_min_{loan_id}"):
-                            if pass_m == '' or login_check(stk, pass_m) != 2:
-                                st.error(text['savings_err_pass_wrong'])
-                            else:
-                                ok, paid = pay_loan_interest(stk, loan_id)
-                                del st.session_state[show_min]
-                                flash_success(
-                                    text['loan_interest_paid_success'].format(
-                                        format(paid, ',')), is_key=False
-                                ) if ok else st.error(text['loan_interest_insufficient'])
-                                st.rerun()
-                    with cm2:
+                    if summary and summary['per_loan_paid'].get(loan_id, False):
+                        st.success(text['loan_interest_this_loan_paid'])
                         if st.button(f"**:red[{text['common_cancel']}]**",
                                     key=f"btn_cancel_min_{loan_id}"):
                             del st.session_state[show_min]
                             st.rerun()
+                    else:
+                        monthly = calc_monthly_interest(principal, rate)
+                        st.info(f"{text['loan_minimum_interest_label']}: "
+                                f"**{format(monthly, ',')} VNĐ**")
+                        st.caption(text['loan_minimum_interest_hint'])
+                        pass_m = st.text_input(text['savings_lbl_pass_confirm'],
+                                                type='password', max_chars=24,
+                                                key=f"pass_min_{loan_id}")
+                        cm1, cm2 = st.columns(2)
+                        with cm1:
+                            if st.button(f"**:green[{text['common_confirm']}]**",
+                                        key=f"btn_cfm_min_{loan_id}"):
+                                if pass_m == '' or login_check(stk, pass_m) != 2:
+                                    st.error(text['savings_err_pass_wrong'])
+                                else:
+                                    ok, paid, already = pay_loan_interest(stk, loan_id)
+                                    del st.session_state[show_min]
+                                    if already:
+                                        flash_success(text['loan_interest_this_loan_paid'], is_key=False)
+                                    elif ok:
+                                        flash_success(
+                                            text['loan_interest_paid_success'].format(format(paid, ',')),
+                                            is_key=False)
+                                    else:
+                                        flash_success(text['loan_interest_insufficient'], is_key=False)
+                                    st.rerun()
+                        with cm2:
+                            if st.button(f"**:red[{text['common_cancel']}]**",
+                                        key=f"btn_cancel_min_{loan_id}"):
+                                del st.session_state[show_min]
+                                st.rerun()
 
                 # Form trả một phần
                 if st.session_state.get(show_partial):
@@ -393,7 +422,7 @@ else:
                         pp1, pp2 = st.columns(2)
                         with pp1:
                             if st.form_submit_button(
-                                    f"**:green[{text['common_confirm']} ✓]**"):
+                                    f"**:green[{text['common_confirm']}]**"):
                                 if pass_p == '' or login_check(stk, pass_p) != 2:
                                     st.error(text['savings_err_pass_wrong'])
                                 elif partial_p <= 0 or partial_p >= principal:
