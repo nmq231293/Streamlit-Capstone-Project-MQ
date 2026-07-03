@@ -599,71 +599,81 @@ def settle_matured_savings(stk):
 
     return matured_count
 
-# --- Hàm rút tiết kiệm trước hạn ---
+# --- Hàm rút tiết kiệm trước hạn, tự động trả bớt nợ nếu vượt hạn mức ---
 def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
-    
     """Rút tiết kiệm trước hạn - chỉ nhận lại đúng số tiền gốc, mất toàn bộ lãi.
     Nếu việc rút khiến hạn mức vay (70% tổng tiết kiệm) giảm xuống dưới dư nợ hiện tại,
     tự động trích từ số tiền rút được để trả bớt nợ (FIFO - khoản vay cũ nhất trả trước)
-    cho đến khi dư nợ về lại trong hạn mức mới."""
-    
+    cho đến khi dư nợ về lại trong hạn mức mới.
+
+    loans_to_paydown: dict {loan_id: principal_amount_to_pay} hoặc None (auto FIFO).
+    Trả về (principal, total_paid_from_savings) — total_paid bao gồm cả lãi.
+    """
+    # Đọc thông tin sổ tiết kiệm
     _, savings_df = savings_init()
     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
+    # Đóng sổ tiết kiệm
     def close_deposit(current_df, did=deposit_id):
         current_df.loc[did, 'Status'] = 'closed'
     update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID',
                     [deposit_id], close_deposit)
 
+    # Tính hạn mức vay MỚI sau khi đóng sổ (đọc lại data mới nhất)
     new_limit = get_loan_limit(stk)
     current_debt = get_total_active_loans(stk)
-    excess = max(0, current_debt - new_limit)
+    excess_principal = max(0, current_debt - new_limit)
 
-    total_paid_down = 0  # tổng tiền thực tế trừ từ savings (gốc + lãi)
+    total_paid_from_savings = 0  # tổng tiền trừ từ số tiền rút (gốc + lãi của các khoản vay)
 
-    if excess > 0:
+    if excess_principal > 0:
+        # Đọc danh sách khoản vay
         _, loans_df = loans_init()
+        my_loans = loans_df[
+            (loans_df['Account_ID'] == stk) &
+            (loans_df['Status'].isin(['active', 'overdue']))
+        ].sort_values('Start_Date')  # FIFO: cũ nhất trước
 
+        # Nếu không truyền vào, tự xây FIFO theo excess_principal
         if loans_to_paydown is None:
-            # Auto FIFO — tính excess theo gốc để xác định các khoản cần trả
-            my_loans = loans_df[
-                (loans_df['Account_ID'] == stk) &
-                (loans_df['Status'].isin(['active', 'overdue']))
-            ].sort_values('Start_Date')
-
             loans_to_paydown = {}
-            remaining_excess = excess
+            remaining = excess_principal
             for lid, lrow in my_loans.iterrows():
-                if remaining_excess <= 0:
+                if remaining <= 0:
                     break
-                pay_principal = min(remaining_excess, int(lrow['Principal']))
-                loans_to_paydown[lid] = pay_principal
-                remaining_excess -= pay_principal
+                pay_p = min(remaining, int(lrow['Principal']))
+                loans_to_paydown[lid] = pay_p
+                remaining -= pay_p
 
-        # Thực thi paydown — tính lãi cho phần gốc trả
+        # Xử lý từng khoản vay — dùng calc_loan_repayment để nhất quán với repay_loan_early
         for lid, pay_principal in loans_to_paydown.items():
-            if lid not in loans_df.index:
+            if lid not in loans_df.index or pay_principal <= 0:
                 continue
 
             loan_row = loans_df.loc[lid]
-            loan_start = datetime.strptime(loan_row['Start_Date'], '%Y-%m-%d').date()
-            actual_days = max((today_vn() - loan_start).days, 1)
-            actual_months = actual_days / DAYS_PER_MONTH
-            rate = float(loan_row['Current_Rate'])
+            old_principal = int(loan_row['Principal'])
 
-            # Lãi phát sinh trên phần gốc đang trả (giống repay_loan_early)
-            interest_on_portion = int(pay_principal * rate * actual_months / 12)
-            total_cost_this_loan = pay_principal + interest_on_portion
+            # Đảm bảo không trả nhiều hơn gốc thực có
+            pay_principal = min(pay_principal, old_principal)
 
-            # Không để total_paid_down vượt quá savings principal
-            affordable = min(total_cost_this_loan, principal - total_paid_down)
-            if affordable <= 0:
+            # Tính lãi theo đúng cách của repay_loan_early, nhân tỉ lệ phần gốc đang trả
+            repay_this_loan = calc_loan_repayment(loan_row, pay_principal=pay_principal)
+
+            # Kiểm tra còn đủ tiền từ savings không
+            remaining_from_savings = principal - total_paid_from_savings
+            if remaining_from_savings <= 0:
                 break
 
-            # Nếu không đủ trang trải cả gốc lẫn lãi, chỉ trả được phần gốc thôi
-            actual_principal_paid = min(pay_principal, affordable)
+            # Nếu không đủ trang trải hết gốc + lãi, dùng hết phần còn lại
+            actual_repay = min(repay_this_loan, remaining_from_savings)
 
-            old_principal = int(loan_row['Principal'])
+            # Tính ngược lại phần gốc thực sự trả được
+            # (để update loan principal đúng)
+            if repay_this_loan > 0:
+                actual_principal_paid = int(pay_principal * actual_repay / repay_this_loan)
+            else:
+                actual_principal_paid = 0
+
             new_p = old_principal - actual_principal_paid
 
             if new_p <= 0:
@@ -671,7 +681,7 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
                     current_df.loc[l, 'Status'] = 'closed'
                 try:
                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], close_l)
-                    total_paid_down += affordable
+                    total_paid_from_savings += actual_repay
                 except OptimisticLockError:
                     pass
             else:
@@ -679,21 +689,22 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
                     current_df.loc[l, 'Principal'] = np
                 try:
                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], reduce_l)
-                    total_paid_down += affordable
+                    total_paid_from_savings += actual_repay
                 except OptimisticLockError:
                     pass
 
-        if total_paid_down > 0:
-            log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, total_paid_down)
+        if total_paid_from_savings > 0:
+            log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, total_paid_from_savings)
 
-    amount_to_credit = principal - total_paid_down
+    # Cộng phần còn lại (sau khi trừ tiền trả nợ) vào Balance
+    amount_to_credit = principal - total_paid_from_savings
 
     def credit_balance(current_df):
         current_df.loc[stk, 'Balance'] += amount_to_credit
     update_accounts_safely([stk], credit_balance)
-    log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
 
-    return principal, total_paid_down
+    log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
+    return principal, total_paid_from_savings
 
 # --- Hàm tính tổng số tiền gốc đang gửi tiết kiệm (chỉ tính sổ còn active) ---
 def get_total_active_savings(stk):
@@ -764,67 +775,67 @@ def get_forced_paydown_info(stk, deposit_id):
         ]
     }
 
-# --- Hàm rút tiết kiệm trước hạn, tự động trả bớt nợ nếu vượt hạn mức ---
-def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
-    _, savings_df = savings_init()
-    principal = int(savings_df.loc[deposit_id, 'Principal'])
+# # --- Hàm rút tiết kiệm trước hạn, tự động trả bớt nợ nếu vượt hạn mức ---
+# def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
+#     _, savings_df = savings_init()
+#     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
-    def close_deposit(current_df):
-        current_df.loc[deposit_id, 'Status'] = 'closed'
-    update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], close_deposit)
+#     def close_deposit(current_df):
+#         current_df.loc[deposit_id, 'Status'] = 'closed'
+#     update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], close_deposit)
 
-    new_limit = get_loan_limit(stk)  # đọc lại SAU khi đóng sổ
-    current_debt = get_total_active_loans(stk)
-    excess = max(0, current_debt - new_limit)
+#     new_limit = get_loan_limit(stk)  # đọc lại SAU khi đóng sổ
+#     current_debt = get_total_active_loans(stk)
+#     excess = max(0, current_debt - new_limit)
 
-    total_paid_down = 0
-    if excess > 0:
-        if loans_to_paydown is None:
-            # Auto FIFO
-            _, loans_df = loans_init()
-            my_loans = loans_df[
-                (loans_df['Account_ID'] == stk) &
-                (loans_df['Status'].isin(['active', 'overdue']))
-            ].sort_values('Start_Date')
-            loans_to_paydown = {}
-            remaining = excess
-            for lid, lrow in my_loans.iterrows():
-                if remaining <= 0:
-                    break
-                pay = min(remaining, int(lrow['Principal']))
-                loans_to_paydown[lid] = pay
-                remaining -= pay
+#     total_paid_down = 0
+#     if excess > 0:
+#         if loans_to_paydown is None:
+#             # Auto FIFO
+#             _, loans_df = loans_init()
+#             my_loans = loans_df[
+#                 (loans_df['Account_ID'] == stk) &
+#                 (loans_df['Status'].isin(['active', 'overdue']))
+#             ].sort_values('Start_Date')
+#             loans_to_paydown = {}
+#             remaining = excess
+#             for lid, lrow in my_loans.iterrows():
+#                 if remaining <= 0:
+#                     break
+#                 pay = min(remaining, int(lrow['Principal']))
+#                 loans_to_paydown[lid] = pay
+#                 remaining -= pay
 
-        for lid, pay_amount in loans_to_paydown.items():
-            _, loans_df = loans_init()
-            if lid not in loans_df.index:
-                continue
-            new_p = int(loans_df.loc[lid, 'Principal']) - pay_amount
-            if new_p <= 0:
-                def close_l(current_df, l=lid):
-                    current_df.loc[l, 'Status'] = 'closed'
-                try:
-                    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], close_l)
-                    total_paid_down += pay_amount
-                except OptimisticLockError:
-                    pass
-            else:
-                def reduce_l(current_df, l=lid, np=new_p):
-                    current_df.loc[l, 'Principal'] = np
-                try:
-                    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], reduce_l)
-                    total_paid_down += pay_amount
-                except OptimisticLockError:
-                    pass
-        if total_paid_down > 0:
-            log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, total_paid_down)
+#         for lid, pay_amount in loans_to_paydown.items():
+#             _, loans_df = loans_init()
+#             if lid not in loans_df.index:
+#                 continue
+#             new_p = int(loans_df.loc[lid, 'Principal']) - pay_amount
+#             if new_p <= 0:
+#                 def close_l(current_df, l=lid):
+#                     current_df.loc[l, 'Status'] = 'closed'
+#                 try:
+#                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], close_l)
+#                     total_paid_down += pay_amount
+#                 except OptimisticLockError:
+#                     pass
+#             else:
+#                 def reduce_l(current_df, l=lid, np=new_p):
+#                     current_df.loc[l, 'Principal'] = np
+#                 try:
+#                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], reduce_l)
+#                     total_paid_down += pay_amount
+#                 except OptimisticLockError:
+#                     pass
+#         if total_paid_down > 0:
+#             log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, total_paid_down)
 
-    amount_to_credit = principal - total_paid_down
-    def credit_balance(current_df):
-        current_df.loc[stk, 'Balance'] += amount_to_credit
-    update_accounts_safely([stk], credit_balance)
-    log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
-    return principal, total_paid_down
+#     amount_to_credit = principal - total_paid_down
+#     def credit_balance(current_df):
+#         current_df.loc[stk, 'Balance'] += amount_to_credit
+#     update_accounts_safely([stk], credit_balance)
+#     log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
+#     return principal, total_paid_down
 
 # --- Thông số để lưu lịch sử giao dịch trả lãi vay ---
 TX_LOAN_INTEREST_PAID = 'loan_interest_paid'
@@ -1012,6 +1023,29 @@ def pay_interest_now(stk):
         _record_interest_payment(loan_id, today, on_time)
     return True, total
 
+# --- Hàm tính tiền trả khoản vay
+def calc_loan_repayment(loan_row, pay_principal=None):
+    """Tính số tiền phải trả cho 1 khoản vay (gốc + lãi theo ngày thực vay).
+    
+    pay_principal: gốc cần trả. None = trả toàn bộ gốc còn lại (dùng cho repay_loan_early).
+    Dùng chung cho cả repay_loan_early và forced paydown để đảm bảo nhất quán 100%.
+    """
+    full_principal = int(loan_row['Principal'])
+    principal_to_repay = pay_principal if pay_principal is not None else full_principal
+    
+    start = datetime.strptime(str(loan_row['Start_Date']), '%Y-%m-%d').date()
+    actual_days = max((today_vn() - start).days, 1)
+    actual_months = actual_days / DAYS_PER_MONTH
+    rate = float(loan_row['Current_Rate'])
+    
+    # Lãi tính theo tỉ lệ phần gốc đang trả so với tổng gốc
+    # Ví dụ: trả 50% gốc → trả 50% lãi phát sinh
+    interest_ratio = principal_to_repay / full_principal if full_principal > 0 else 1
+    total_interest = int(full_principal * rate * actual_months / 12)
+    interest_to_pay = int(total_interest * interest_ratio)
+    
+    return principal_to_repay + interest_to_pay
+
 # --- Hàm mở khoản vay mới, trừ tiền vào Balance ngay lập tức, ghi nhận giao dịch ---
 def open_loan(stk, amount, term_months):
     current_debt = get_total_active_loans(stk)
@@ -1076,13 +1110,12 @@ def settle_matured_loans(stk):
 
 # --- Hàm cho phép người dùng chủ động trả nợ trước hạn ---
 def repay_loan_early(stk, loan_id):
+    """Trả nợ trước hạn - lãi tính theo số ngày thực vay."""
     _, loans_df = loans_init()
     loan_row = loans_df.loc[loan_id]
-    start = datetime.strptime(loan_row['Start_Date'], '%Y-%m-%d').date()
-    actual_days = max((today_vn() - start).days, 1)
-    actual_months = actual_days / DAYS_PER_MONTH
-    repay_amount = int(loan_row['Principal'] + loan_row['Principal'] * loan_row['Current_Rate'] * actual_months / 12)
-
+    
+    repay_amount = calc_loan_repayment(loan_row)  # trả toàn bộ gốc + lãi
+    
     def deduct_balance(current_df):
         if current_df.loc[stk, 'Balance'] < repay_amount:
             raise ValueError("INSUFFICIENT_FUNDS")
