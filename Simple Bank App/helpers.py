@@ -475,7 +475,7 @@ LOAN_RATE_TABLE = {
 }
 
 LOAN_PREFERENTIAL_RATE   = 0.06   # 6%/năm — tiết kiệm ≥ 2× tổng vay
-LOAN_PREF_SAVINGS_RATIO  = 2.0
+LOAN_PREF_SAVINGS_RATIO  = 10/3
 LOAN_BASE_MAX_AMOUNT     = 200_000_000
 LOAN_MAX_RATIO_OF_SAVINGS= 0.7
 LOAN_MIN_AMOUNT          = 500_000
@@ -938,55 +938,109 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
     return principal, total_paid_from_savings
 
 # --- Hàm rút một phần tiết kiệm, tự động forced paydown nếu vi phạm loan limit ---
-def partial_withdraw_savings(stk, deposit_id, withdraw_amount):
-    """Rút MỘT PHẦN tiết kiệm (không tính lãi).
-    Tự động forced paydown (ưu tiên lãi cao nhất trước) nếu vi phạm loan limit.
-    Returns: (withdraw_amount, forced_paydown_amount)"""
+def partial_withdraw_savings(stk, deposit_id, withdraw_amount, loans_to_paydown=None):
+    """Rút MỘT PHẦN tiết kiệm. Không đóng sổ, chỉ giảm principal.
+    
+    loans_to_paydown: dict {loan_id: principal_amount} hoặc None (auto).
+    Auto mode: ưu tiên pref loans trước (để duy trì điều kiện ưu đãi),
+            rồi non-pref theo lãi suất cao → thấp.
+    Returns: (withdraw_amount, forced_paydown_amount)
+    """
     _, savings_df = savings_init()
     current_principal = int(savings_df.loc[deposit_id, 'Principal'])
 
     if withdraw_amount <= 0 or withdraw_amount >= current_principal:
         raise ValueError("INVALID_AMOUNT")
 
-    # Giảm gốc sổ tiết kiệm
+    # 1. Giảm principal sổ tiết kiệm
     new_principal = current_principal - withdraw_amount
     def reduce_principal(current_df):
         current_df.loc[deposit_id, 'Principal'] = new_principal
     update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID',
                     [deposit_id], reduce_principal)
 
-    # Kiểm tra loan limit sau khi giảm
-    new_limit = get_loan_limit(stk)
-    current_debt = get_total_active_loans(stk)
-    excess = max(0, current_debt - new_limit)
+    # 2. Kiểm tra forced paydown SAU KHI đã giảm principal
+    new_loan_limit = get_loan_limit(stk)
+    current_debt   = get_total_active_loans(stk)
+    _, sav_df      = savings_init()
+    total_savings  = int(sav_df[
+        (sav_df['Account_ID'] == stk) & (sav_df['Status'] == 'active')
+    ]['Principal'].sum())
+    new_max_pref = int(total_savings / LOAN_PREF_SAVINGS_RATIO)
+
+    _, loans_df = loans_init()
+    my_loans = loans_df[
+        (loans_df['Account_ID'] == stk) &
+        (loans_df['Status'].isin(['active', 'overdue']))
+    ]
+
+    pref_loans = my_loans[my_loans['Current_Rate'] == LOAN_PREFERENTIAL_RATE] \
+        if not my_loans.empty else pd.DataFrame()
+    non_pref   = my_loans[my_loans['Current_Rate'] != LOAN_PREFERENTIAL_RATE] \
+        if not my_loans.empty else pd.DataFrame()
+    total_pref = int(pref_loans['Principal'].sum()) if not pref_loans.empty else 0
+
+    pref_excess  = max(0, total_pref - new_max_pref)
+    post_pref    = current_debt - pref_excess
+    limit_excess = max(0, post_pref - new_loan_limit)
+    total_excess = pref_excess + limit_excess
 
     total_paid = 0
-    if excess > 0:
-        _, loans_df = loans_init()
-        my_loans = loans_df[
-            (loans_df['Account_ID'] == stk) &
-            (loans_df['Status'].isin(['active', 'overdue']))
-        ].sort_values('Current_Rate', ascending=False)  # Lãi cao nhất trước
 
-        remaining = excess
-        for lid, lrow in my_loans.iterrows():
-            if remaining <= 0:
-                break
-            pay_p = min(remaining, int(lrow['Principal']))
-            repay_cost = calc_loan_repayment(lrow, pay_principal=pay_p)
-            affordable = min(repay_cost, withdraw_amount - total_paid)
+    if total_excess > 0:
+        if loans_to_paydown is None:
+            # Auto: pref trước, rồi non-pref lãi cao nhất
+            loans_to_paydown = {}
+            pref_rem  = pref_excess
+            limit_rem = limit_excess
+
+            for lid, lrow in pref_loans.sort_values('Principal', ascending=False).iterrows():
+                if pref_rem <= 0:
+                    break
+                pay = min(pref_rem, int(lrow['Principal']))
+                loans_to_paydown[lid] = pay
+                pref_rem -= pay
+
+            for lid, lrow in non_pref.sort_values('Current_Rate', ascending=False).iterrows():
+                if limit_rem <= 0:
+                    break
+                pay = min(limit_rem, int(lrow['Principal']))
+                loans_to_paydown[lid] = loans_to_paydown.get(lid, 0) + pay
+                limit_rem -= pay
+
+            # Nếu vẫn còn thiếu, tiếp tục pref
+            if limit_rem > 0:
+                for lid, lrow in pref_loans.sort_values('Principal', ascending=False).iterrows():
+                    if limit_rem <= 0:
+                        break
+                    already = loans_to_paydown.get(lid, 0)
+                    can_pay = int(lrow['Principal']) - already
+                    if can_pay > 0:
+                        pay = min(limit_rem, can_pay)
+                        loans_to_paydown[lid] = already + pay
+                        limit_rem -= pay
+
+        # Thực thi paydown
+        for lid, pay_principal in loans_to_paydown.items():
+            if lid not in loans_df.index or pay_principal <= 0:
+                continue
+            loan_row    = loans_df.loc[lid]
+            old_p       = int(loan_row['Principal'])
+            pay_p       = min(pay_principal, old_p)
+            repay_cost  = calc_loan_repayment(loan_row, pay_principal=pay_p)
+            affordable  = min(repay_cost, withdraw_amount - total_paid)
             if affordable <= 0:
                 break
-            ratio = affordable / repay_cost if repay_cost > 0 else 0
-            actual_p_paid = int(pay_p * ratio)
-            new_p = int(lrow['Principal']) - actual_p_paid
+            ratio       = affordable / repay_cost if repay_cost > 0 else 0
+            actual_p    = int(pay_p * ratio)
+            new_p       = old_p - actual_p
+
             if new_p <= 0:
                 def close_l(current_df, l=lid):
                     current_df.loc[l, 'Status'] = 'closed'
                 try:
                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], close_l)
                     total_paid += affordable
-                    remaining -= actual_p_paid
                 except OptimisticLockError:
                     pass
             else:
@@ -995,13 +1049,13 @@ def partial_withdraw_savings(stk, deposit_id, withdraw_amount):
                 try:
                     update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], reduce_l)
                     total_paid += affordable
-                    remaining -= actual_p_paid
                 except OptimisticLockError:
                     pass
 
         if total_paid > 0:
             log_transaction(stk, TX_LOAN_FORCED_PAYDOWN, total_paid)
 
+    # 3. Cộng phần còn lại vào Balance
     amount_to_credit = withdraw_amount - total_paid
     def credit_balance(current_df):
         current_df.loc[stk, 'Balance'] += amount_to_credit
@@ -1116,6 +1170,71 @@ def get_forced_paydown_info(stk, deposit_id):
         'pref_loans': make_loan_list(pref_loans, 'Principal', False),
         'other_loans': make_loan_list(non_pref_loans, 'Current_Rate', False),
         'loans': make_loan_list(my_loans, 'Current_Rate', False),  # backward compat
+    }
+
+# --- Hàm kiểm tra xem khi giảm tổng tiết kiệm có vượt hạn mức vay hay không, trả về thông tin để UI xử lý ---
+def get_forced_paydown_info_for_reduction(stk, savings_reduction):
+    """Kiểm tra xem khi tổng tiết kiệm giảm savings_reduction có vi phạm
+    loan limit hoặc điều kiện ưu đãi không.
+    Dùng cho partial withdrawal (không đóng sổ, chỉ giảm principal).
+    Returns: dict tương tự get_forced_paydown_info()"""
+    _, savings_df = savings_init()
+    total_savings = int(savings_df[
+        (savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')
+    ]['Principal'].sum())
+    new_savings = total_savings - savings_reduction
+    new_loan_limit = max(LOAN_BASE_MAX_AMOUNT, int(new_savings * LOAN_MAX_RATIO_OF_SAVINGS))
+    new_max_pref   = int(new_savings / LOAN_PREF_SAVINGS_RATIO)
+
+    _, loans_df = loans_init()
+    my_loans = loans_df[
+        (loans_df['Account_ID'] == stk) &
+        (loans_df['Status'].isin(['active', 'overdue']))
+    ]
+
+    if my_loans.empty:
+        return {'needs_paydown': False, 'new_limit': new_loan_limit,
+                'pref_excess': 0, 'limit_excess': 0, 'total_excess': 0}
+
+    total_loans = int(my_loans['Principal'].sum())
+    pref_loans  = my_loans[my_loans['Current_Rate'] == LOAN_PREFERENTIAL_RATE]
+    non_pref    = my_loans[my_loans['Current_Rate'] != LOAN_PREFERENTIAL_RATE]
+    total_pref  = int(pref_loans['Principal'].sum()) if not pref_loans.empty else 0
+
+    pref_excess  = max(0, total_pref - new_max_pref)
+    # Sau khi xử lý pref, tổng nợ còn lại
+    post_pref_debt = total_loans - pref_excess
+    limit_excess   = max(0, post_pref_debt - new_loan_limit)
+    total_excess   = pref_excess + limit_excess
+
+    if total_excess == 0:
+        return {'needs_paydown': False, 'new_limit': new_loan_limit,
+                'pref_excess': 0, 'limit_excess': 0, 'total_excess': 0}
+
+    def make_loan_list(df_subset, sort_col='Current_Rate', asc=False):
+        if df_subset.empty:
+            return []
+        return [
+            {'loan_id': lid,
+            'principal': int(r['Principal']),
+            'rate': float(r['Current_Rate']),
+            'term': int(r['Term_Months']),
+            'start': r['Start_Date'],
+            'maturity': r['Maturity_Date'],
+            'is_pref': float(r['Current_Rate']) == LOAN_PREFERENTIAL_RATE}
+            for lid, r in df_subset.sort_values(sort_col, ascending=asc).iterrows()
+        ]
+
+    return {
+        'needs_paydown': True,
+        'new_limit':     new_loan_limit,
+        'new_max_pref':  new_max_pref,
+        'pref_excess':   pref_excess,
+        'limit_excess':  limit_excess,
+        'total_excess':  total_excess,
+        'pref_loans':    make_loan_list(pref_loans,  'Principal', False),
+        'other_loans':   make_loan_list(non_pref,    'Current_Rate', False),
+        'loans':         make_loan_list(my_loans,    'Current_Rate', False),
     }
 
 # --- Thông số để lưu lịch sử giao dịch trả lãi vay ---
