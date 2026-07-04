@@ -3,8 +3,9 @@ from helpers import (available_balance, login_check, settle_matured_savings,
                     open_savings_deposit, withdraw_savings_early,
                     partial_withdraw_savings, withdraw_all_savings,
                     toggle_savings_auto_renew, get_forced_paydown_info,
-                    savings_init, SAVINGS_MIN_AMOUNT, RATE_TABLE, to_bool,
-                    flash_success, show_flash_message)
+                    get_forced_paydown_info_for_reduction, savings_init,
+                    SAVINGS_MIN_AMOUNT, RATE_TABLE, to_bool, loans_init,
+                    LOAN_BASE_MAX_AMOUNT, flash_success, show_flash_message)
 
 if not st.session_state.login_state:
     st.switch_page('pages/home.py')
@@ -78,11 +79,35 @@ with hc1:
 with hc2:
     if not my_deposits.empty:
         if st.button(text['savings_btn_withdraw_all_deposits'], key='btn_withdraw_all'):
+            # Tính tổng tiết kiệm và hậu quả nếu rút hết
+            _, loans_df = loans_init()
+            total_savings = int(my_deposits['Principal'].sum())
+            new_limit = LOAN_BASE_MAX_AMOUNT  # sau khi rút hết, savings=0
+            active_loans = loans_df[
+                (loans_df['Account_ID'] == stk) &
+                (loans_df['Status'].isin(['active', 'overdue']))
+            ]
+            total_debt = int(active_loans['Principal'].sum()) if not active_loans.empty else 0
+            forced_down = max(0, total_debt - new_limit)
             st.session_state['confirm_withdraw_all'] = True
+            st.session_state['withdraw_all_forced_down'] = forced_down
+            st.session_state['withdraw_all_debt'] = total_debt
             st.rerun()
 
 if st.session_state.get('confirm_withdraw_all'):
     st.warning(text['savings_confirm_withdraw_all'])
+
+    forced_down = st.session_state.get('withdraw_all_forced_down', 0)
+    total_debt  = st.session_state.get('withdraw_all_debt', 0)
+    if forced_down > 0:
+        st.error(
+            text['savings_withdraw_all_forced_paydown_warning'].format(
+                format(total_debt, ','),
+                format(forced_down, ','),
+                format(LOAN_BASE_MAX_AMOUNT, ',')
+            )
+        )
+
     pass_all = st.text_input(text['savings_lbl_pass_confirm'], type='password',
                             max_chars=24, key='pass_withdraw_all')
     wa1, wa2 = st.columns(2)
@@ -94,6 +119,8 @@ if st.session_state.get('confirm_withdraw_all'):
             else:
                 total_p, total_fp = withdraw_all_savings(stk)
                 del st.session_state['confirm_withdraw_all']
+                st.session_state.pop('withdraw_all_forced_down', None)
+                st.session_state.pop('withdraw_all_debt', None)
                 if total_fp > 0:
                     flash_success(text['savings_forced_paydown_notice'].format(
                         format(total_fp, ',')), is_key=False)
@@ -104,6 +131,8 @@ if st.session_state.get('confirm_withdraw_all'):
         if st.button(f"**:red[{text['common_cancel']}]**",
                     key='btn_cancel_withdraw_all'):
             del st.session_state['confirm_withdraw_all']
+            st.session_state.pop('withdraw_all_forced_down', None)
+            st.session_state.pop('withdraw_all_debt', None)
             st.rerun()
 
 if my_deposits.empty:
@@ -206,19 +235,27 @@ else:
                                 elif partial_amt <= 0 or partial_amt >= int(row['Principal']):
                                     st.error(text['savings_err_partial_invalid'])
                                 else:
-                                    try:
-                                        amt, fp = partial_withdraw_savings(
-                                            stk, deposit_id, int(partial_amt))
+                                    # Kiểm tra trước khi thực thi
+                                    info = get_forced_paydown_info_for_reduction(stk, int(partial_amt))
+                                    if info['needs_paydown']:
+                                        # Lưu pending để hiện dialog chọn khoản vay
+                                        st.session_state['_pending_partial_withdraw'] = {
+                                            'deposit_id': deposit_id,
+                                            'withdraw_amount': int(partial_amt),
+                                            'info': info,
+                                            'from_partial_key': show_partial_key,
+                                        }
                                         del st.session_state[show_partial_key]
-                                        if fp > 0:
-                                            flash_success(
-                                                text['savings_forced_paydown_notice'].format(
-                                                    format(fp, ',')), is_key=False)
-                                        else:
-                                            flash_success('savings_success_early_withdrawn')
                                         st.rerun()
-                                    except ValueError:
-                                        st.error(text['savings_err_partial_invalid'])
+                                    else:
+                                        try:
+                                            amt, fp = partial_withdraw_savings(
+                                                stk, deposit_id, int(partial_amt))
+                                            del st.session_state[show_partial_key]
+                                            flash_success('savings_success_early_withdrawn')
+                                            st.rerun()
+                                        except ValueError:
+                                            st.error(text['savings_err_partial_invalid'])
                         with pfc2:
                             if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
                                 del st.session_state[show_partial_key]
@@ -375,4 +412,159 @@ else:
         with pb:
             if st.button(f"**:red[{text['common_cancel']}]**", key='btn_cancel_pd'):
                 del st.session_state['_pending_withdraw']
+                st.rerun()
+    # Partial withdrawal paydown dialog
+    partial_pending = st.session_state.get('_pending_partial_withdraw')
+    if partial_pending:
+        deposit_id_p     = partial_pending['deposit_id']
+        withdraw_amount_p= partial_pending['withdraw_amount']
+        info_p           = partial_pending['info']
+
+        st.markdown('---')
+        st.warning(text['loan_paydown_needed'])
+        if info_p.get('pref_excess', 0) > 0:
+            st.info(text['loan_paydown_pref_required'].format(
+                format(info_p['pref_excess'], ',')))
+        st.write(text['loan_paydown_total_needed'].format(
+            format(info_p['total_excess'], ',')))
+
+        mode_p = st.radio('', [text['loan_paydown_auto'], text['loan_paydown_manual']],
+                        key='partial_paydown_mode')
+        loans_to_paydown_p = {}
+
+        if mode_p == text['loan_paydown_auto']:
+            pref_rem  = info_p.get('pref_excess', 0)
+            limit_rem = info_p.get('limit_excess', 0)
+
+            for loan in info_p.get('pref_loans', []):
+                if pref_rem <= 0:
+                    break
+                pay = min(pref_rem, loan['principal'])
+                loans_to_paydown_p[loan['loan_id']] = pay
+                pref_rem -= pay
+
+            for loan in info_p.get('other_loans', []):
+                if limit_rem <= 0:
+                    break
+                pay = min(limit_rem, loan['principal'])
+                loans_to_paydown_p[loan['loan_id']] = \
+                    loans_to_paydown_p.get(loan['loan_id'], 0) + pay
+                limit_rem -= pay
+
+            if limit_rem > 0:
+                for loan in info_p.get('pref_loans', []):
+                    if limit_rem <= 0:
+                        break
+                    already = loans_to_paydown_p.get(loan['loan_id'], 0)
+                    can_pay = loan['principal'] - already
+                    if can_pay > 0:
+                        pay = min(limit_rem, can_pay)
+                        loans_to_paydown_p[loan['loan_id']] = already + pay
+                        limit_rem -= pay
+
+            for loan in info_p.get('pref_loans', []) + info_p.get('other_loans', []):
+                if loan['loan_id'] in loans_to_paydown_p:
+                    amt = loans_to_paydown_p[loan['loan_id']]
+                    label = " (ưu đãi)" if loan.get('is_pref') else ""
+                    st.caption(text['loan_paydown_caption'].format(
+                        format(loan['principal'], ','),
+                        loan['start'],
+                        format(amt, ',')
+                    ) + label)
+        else:
+            total_pref_sel = 0
+            total_sel = 0
+            pref_required_p = info_p.get('pref_excess', 0)
+
+            if info_p.get('pref_loans'):
+                st.markdown(f"**{text['loan_paydown_pref_section']}**")
+                for loan in info_p['pref_loans']:
+                    ca, cb = st.columns([3, 2])
+                    with ca:
+                        st.write(f"🌟 {format(loan['principal'], ',')} VNĐ · "
+                                f"{loan['rate']*100:.1f}%{text['common_per_year']} "
+                                f"· {loan['maturity']}")
+                    with cb:
+                        sel = st.number_input(
+                            text['loan_paydown_manual_label'],
+                            min_value=0, max_value=loan['principal'],
+                            step=100000, format='%d',
+                            key=f"pp_pref_{loan['loan_id']}"
+                        )
+                        if sel > 0:
+                            loans_to_paydown_p[loan['loan_id']] = sel
+                            total_pref_sel += sel
+                            total_sel += sel
+
+            if info_p.get('other_loans'):
+                st.markdown(f"**{text['loan_paydown_other_section']}**")
+                for loan in info_p['other_loans']:
+                    ca, cb = st.columns([3, 2])
+                    with ca:
+                        st.write(f"{format(loan['principal'], ',')} VNĐ · "
+                                f"{loan['rate']*100:.1f}%{text['common_per_year']} "
+                                f"· {loan['maturity']}")
+                    with cb:
+                        sel = st.number_input(
+                            text['loan_paydown_manual_label'],
+                            min_value=0, max_value=loan['principal'],
+                            step=100000, format='%d',
+                            key=f"pp_other_{loan['loan_id']}"
+                        )
+                        if sel > 0:
+                            loans_to_paydown_p[loan['loan_id']] = sel
+                            total_sel += sel
+
+            if pref_required_p > 0 and total_pref_sel < pref_required_p:
+                st.warning(text['loan_paydown_pref_required'].format(
+                    format(pref_required_p, ',')))
+            if total_sel < info_p['total_excess']:
+                st.warning(text['loan_paydown_insufficient'].format(
+                    format(total_sel, ','), format(info_p['total_excess'], ',')))
+
+        # Password + confirm/cancel
+        pass_pp = st.text_input(text['savings_lbl_pass_confirm'], type='password',
+                                max_chars=24, key='pass_partial_paydown')
+        pp_a, pp_b = st.columns(2)
+        with pp_a:
+            if st.button(f"**:green[{text['loan_paydown_confirm']}]**",
+                        key='btn_cfm_partial_pd'):
+                total_pref_final = sum(
+                    loans_to_paydown_p.get(l['loan_id'], 0)
+                    for l in info_p.get('pref_loans', [])
+                )
+                pref_ok  = (info_p.get('pref_excess', 0) == 0 or
+                            mode_p == text['loan_paydown_auto'] or
+                            total_pref_final >= info_p.get('pref_excess', 0))
+                total_ok = (mode_p == text['loan_paydown_auto'] or
+                            sum(loans_to_paydown_p.values()) >= info_p['total_excess'])
+
+                if not pref_ok:
+                    st.error(text['loan_paydown_pref_required'].format(
+                        format(info_p.get('pref_excess', 0), ',')))
+                elif not total_ok:
+                    st.error(text['loan_paydown_insufficient'].format(
+                        format(sum(loans_to_paydown_p.values()), ','),
+                        format(info_p['total_excess'], ',')
+                    ))
+                elif pass_pp == '' or login_check(stk, pass_pp) != 2:
+                    st.error(text['savings_err_pass_wrong'])
+                else:
+                    manual = loans_to_paydown_p if mode_p == text['loan_paydown_manual'] else None
+                    try:
+                        amt, fp = partial_withdraw_savings(
+                            stk, deposit_id_p, withdraw_amount_p, manual)
+                        del st.session_state['_pending_partial_withdraw']
+                        if fp > 0:
+                            flash_success(text['savings_forced_paydown_notice'].format(
+                                format(fp, ',')), is_key=False)
+                        else:
+                            flash_success('savings_success_early_withdrawn')
+                        st.rerun()
+                    except ValueError:
+                        st.error(text['savings_err_partial_invalid'])
+        with pp_b:
+            if st.button(f"**:red[{text['common_cancel']}]**",
+                        key='btn_cancel_partial_pd'):
+                del st.session_state['_pending_partial_withdraw']
                 st.rerun()

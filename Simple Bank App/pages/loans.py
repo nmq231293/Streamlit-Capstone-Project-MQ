@@ -87,7 +87,7 @@ if summary:
                         
 
 # Rate info dialog
-@st.dialog(f"📋 Loan Rate Policy / Chính Sách Lãi Suất", width='large')
+@st.dialog(f"📋 :red[Loan Rate Policy / Chính Sách Lãi Suất]", width='large')
 def loan_rate_info_dialog():
     d = st.session_state.text
 
