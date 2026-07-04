@@ -188,7 +188,11 @@ DICTIONARY = {
         'savings_err_partial_invalid': 'Số tiền phải lớn hơn 0 và nhỏ hơn số tiền gốc',
         'savings_btn_withdraw_all_deposits': 'Rút tất cả sổ tiết kiệm',
         'savings_confirm_withdraw_all': 'Rút tất cả sổ tiết kiệm đang hoạt động? Không tính lãi.',
-        
+        'savings_withdraw_all_forced_paydown_warning': (
+            '⚠️ Rút hết tiết kiệm sẽ khiến tổng dư nợ ({} VNĐ) vượt hạn mức vay tối thiểu '
+            '({} VNĐ cần giảm để về trong hạn mức {} VNĐ). '
+            'Hệ thống sẽ tự động trả bớt các khoản vay theo thứ tự ưu tiên.'
+        ),        
                 
         'common_month_unit': 'tháng',
         'common_cancel': 'Hủy',
@@ -522,6 +526,11 @@ DICTIONARY = {
         'savings_btn_withdraw_all_deposits': 'Withdraw all savings',
         'savings_confirm_withdraw_all': 'Withdraw all active savings deposits? No interest will be paid.',
         
+        'savings_withdraw_all_forced_paydown_warning': (
+            '⚠️ Withdrawing all savings will cause your total debt ({} VND) to exceed the loan limit. '
+            '{} VND must be repaid to stay within the {} VND minimum limit. '
+            'The system will automatically pay down loans in priority order.'
+        ),
         
         'common_month_unit': 'mo.',
         'common_cancel': 'Cancel',
