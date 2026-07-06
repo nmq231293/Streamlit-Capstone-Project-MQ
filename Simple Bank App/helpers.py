@@ -2488,3 +2488,161 @@ def account_info(stk):
                 update_accounts_safely([stk], apply_password_change)
                 st.session_state.password_change_need = False
                 st.success(text['as_success_pass_changed'])
+                
+
+# ==============================================================================
+# ADMIN HELPER FUNCTIONS
+# ==============================================================================
+POWER_LEVEL_LABELS = {0: 'User', 1: 'Viewer', 2: 'Moderator', 3: 'Super Admin'}
+
+
+def admin_get_system_stats():
+    """Tổng hợp chỉ số toàn hệ thống cho admin dashboard."""
+    _, acc_df = df_init()
+    _, sav_df = savings_init()
+    _, loan_df = loans_init()
+
+    total_users = len(acc_df)
+    total_balance = int(acc_df['Balance'].sum())
+
+    active_sav = sav_df[sav_df['Status'] == 'active'] if not sav_df.empty else pd.DataFrame()
+    total_savings = int(active_sav['Principal'].sum()) if not active_sav.empty else 0
+
+    active_loan = loan_df[loan_df['Status'].isin(['active', 'overdue'])] if not loan_df.empty else pd.DataFrame()
+    total_loans = int(active_loan['Principal'].sum()) if not active_loan.empty else 0
+
+    locked_count = int(acc_df['Is_Locked'].apply(to_bool).sum())
+    overdue_ids = set(loan_df[loan_df['Status'] == 'overdue']['Account_ID'].tolist()) if not loan_df.empty else set()
+    overdue_count = len(overdue_ids)
+
+    return {
+        'total_users': total_users,
+        'total_balance': total_balance,
+        'total_savings': total_savings,
+        'total_loans': total_loans,
+        'locked_count': locked_count,
+        'overdue_count': overdue_count,
+    }
+
+
+def admin_get_user_summary():
+    """Trả về DataFrame tổng hợp thông tin người dùng kèm tiết kiệm/vay."""
+    _, acc_df = df_init()
+    _, sav_df = savings_init()
+    _, loan_df = loans_init()
+
+    result = acc_df.copy().reset_index()  # ID thành cột
+
+    # Aggregate active savings
+    if not sav_df.empty:
+        agg_sav = (sav_df[sav_df['Status'] == 'active']
+                    .groupby('Account_ID')['Principal'].sum()
+                    .reset_index().rename(columns={'Account_ID': 'ID', 'Principal': 'Total_Savings'}))
+    else:
+        agg_sav = pd.DataFrame(columns=['ID', 'Total_Savings'])
+
+    # Aggregate active+overdue loans
+    if not loan_df.empty:
+        agg_loan = (loan_df[loan_df['Status'].isin(['active', 'overdue'])]
+                    .groupby('Account_ID')['Principal'].sum()
+                    .reset_index().rename(columns={'Account_ID': 'ID', 'Principal': 'Total_Loans'}))
+        overdue_ids = set(loan_df[loan_df['Status'] == 'overdue']['Account_ID'].tolist())
+    else:
+        agg_loan = pd.DataFrame(columns=['ID', 'Total_Loans'])
+        overdue_ids = set()
+
+    result = result.merge(agg_sav, on='ID', how='left')
+    result = result.merge(agg_loan, on='ID', how='left')
+    result['Total_Savings'] = result['Total_Savings'].fillna(0).astype(int)
+    result['Total_Loans'] = result['Total_Loans'].fillna(0).astype(int)
+    result['Is_Locked_Bool'] = result['Is_Locked'].apply(to_bool)
+    result['Has_Overdue'] = result['ID'].isin(overdue_ids)
+
+    # Bỏ cột nhạy cảm
+    result = result.drop(columns=['Password', 'Session', 'Previous_Session', '_sheet_row'], errors='ignore')
+    return result, overdue_ids
+
+
+def admin_lock_account(stk):
+    def apply(current_df):
+        current_df.loc[stk, 'Is_Locked'] = 'TRUE'
+    update_accounts_safely([stk], apply)
+
+
+def admin_unlock_account(stk):
+    def apply(current_df):
+        current_df.loc[stk, 'Is_Locked'] = 'FALSE'
+    update_accounts_safely([stk], apply)
+
+
+def admin_adjust_balance(stk, amount):
+    """amount: dương = cộng, âm = trừ. Raise ValueError nếu số dư xuống âm."""
+    def apply(current_df):
+        new_bal = int(current_df.loc[stk, 'Balance']) + amount
+        if new_bal < 0:
+            raise ValueError("BALANCE_NEGATIVE")
+        current_df.loc[stk, 'Balance'] = new_bal
+    update_accounts_safely([stk], apply)
+
+
+def admin_change_power_level(stk, new_level):
+    def apply(current_df):
+        current_df.loc[stk, 'Power_Level'] = new_level
+    update_accounts_safely([stk], apply)
+
+
+def admin_soft_delete_account(stk):
+    """Soft delete: ẩn danh hóa thông tin, đóng tất cả sổ/khoản vay, khóa tài khoản.
+    Không xóa dòng khỏi sheet để tránh lệch _sheet_row."""
+    # Đóng tất cả sổ tiết kiệm đang active
+    _, sav_df = savings_init()
+    active_sav = sav_df[(sav_df['Account_ID'] == stk) & (sav_df['Status'] == 'active')]
+    for did, _ in active_sav.iterrows():
+        def close_s(current_df, d=did):
+            current_df.loc[d, 'Status'] = 'closed'
+        try:
+            update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [did], close_s)
+        except OptimisticLockError:
+            pass
+
+    # Đóng tất cả khoản vay (xóa nợ khi xóa tài khoản)
+    _, loan_df = loans_init()
+    active_loans = loan_df[(loan_df['Account_ID'] == stk) & (loan_df['Status'].isin(['active', 'overdue']))]
+    for lid, _ in active_loans.iterrows():
+        def close_l(current_df, l=lid):
+            current_df.loc[l, 'Status'] = 'closed'
+        try:
+            update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], close_l)
+        except OptimisticLockError:
+            pass
+
+    # Ẩn danh hóa toàn bộ thông tin
+    def anonymize(current_df):
+        current_df.loc[stk, 'Name'] = '[DELETED]'
+        current_df.loc[stk, 'Phone'] = '0000000000'
+        current_df.loc[stk, 'Email'] = f'deleted_{stk}@deleted.com'
+        current_df.loc[stk, 'Password'] = 'DELETED'
+        current_df.loc[stk, 'Balance'] = 0
+        current_df.loc[stk, 'Session'] = '0'
+        current_df.loc[stk, 'Previous_Session'] = '0'
+        current_df.loc[stk, 'Is_Locked'] = 'TRUE'
+    update_accounts_safely([stk], anonymize)
+
+
+def admin_get_recent_transactions(n=30):
+    """Lấy n giao dịch gần nhất của toàn hệ thống."""
+    _, tx_df = transactions_init()
+    if tx_df.empty:
+        return tx_df
+    tx_df['Timestamp'] = pd.to_datetime(tx_df['Timestamp'])
+    return tx_df.sort_values('Timestamp', ascending=False).head(n)
+
+
+def admin_get_tx_timeline():
+    """Group giao dịch theo ngày để vẽ line chart."""
+    _, tx_df = transactions_init()
+    if tx_df.empty:
+        return pd.DataFrame()
+    tx_df['Timestamp'] = pd.to_datetime(tx_df['Timestamp'])
+    tx_df['Date'] = tx_df['Timestamp'].dt.date
+    return tx_df.groupby('Date').size().reset_index(name='Count')

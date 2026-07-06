@@ -47,6 +47,27 @@ with col4:
 # Khôi phục đăng nhập từ token (logic chi tiết nằm trong auth.py)
 restore_login_session(df)
 
+# Impersonation banner — hiển thị ở mọi trang khi đang giả lập
+if st.session_state.get('impersonating'):
+    imp_c1, imp_c2 = st.columns([5, 1])
+    with imp_c1:
+        st.warning(
+            f"👤 **{st.session_state.text['admin_impersonate_banner']}**: "
+            f"{st.session_state.acc_name} (`{st.session_state.acc_num}`)"
+        )
+    with imp_c2:
+        if st.button(f"🚪 {st.session_state.text['admin_impersonate_exit']}",
+                    key='exit_impersonate'):
+            st.session_state.acc_num = st.session_state.real_acc_num
+            st.session_state.acc_name = st.session_state.real_acc_name
+            st.session_state.power_level = st.session_state.real_power_level
+            st.session_state.impersonating = False
+            # Dọn các key tạm
+            for k in ('real_acc_num', 'real_acc_name', 'real_power_level'):
+                if k in st.session_state:
+                    del st.session_state[k]
+            st.switch_page('pages/admin_power.py')
+
 
 # Gọi chức năng chatbot
 embed_chatbot()
@@ -110,6 +131,8 @@ if 'session_token' not in st.session_state:
     st.session_state.session_token = ''
 if 'history_page' not in st.session_state:
     st.session_state.history_page = 1
+if 'impersonating' not in st.session_state:
+    st.session_state.impersonating = False
 
 # Áp ảnh nền (đã cache, không còn đọc lại file mỗi lần rerun)
 if not apply_background_image("Simple Bank App/wallpaper/reynoldbank.png"):
