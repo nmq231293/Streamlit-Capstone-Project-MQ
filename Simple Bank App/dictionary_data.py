@@ -144,6 +144,12 @@ DICTIONARY = {
         'rh_err_insufficient': 'Không đủ tiền để chuyển. Vui lòng quay lại trang chuyển khoản.',
         'rh_err_system_busy': 'Hệ thống đang xử lý nhiều giao dịch, vui lòng thử lại sau giây lát.',
         'sys_err_update_conflict': 'Không thể cập nhật dữ liệu do hệ thống đang bận, vui lòng thử lại.',
+        'sys_err_quota_settle': 'Hệ thống Google Sheets đang tạm thời quá tải nên một vài cập nhật tự động (đáo hạn/lãi) có thể bị trễ, hệ thống sẽ tự thử lại ở lần tải trang kế tiếp.',
+        'sys_err_quota': 'Hệ thống Google Sheets đang quá tải (giới hạn số lượt truy vấn/phút). Vui lòng đợi ít phút rồi thử lại.',
+        'tx_failed_recovered': 'Giao dịch không thành công do lỗi hệ thống tạm thời. Số tiền/thay đổi đã được TỰ ĐỘNG HOÀN LẠI, quý khách vui lòng thử lại.',
+        'tx_failed_unrecovered': 'Giao dịch gặp lỗi nghiêm trọng và hệ thống KHÔNG THỂ tự động hoàn tác. Vui lòng kiểm tra lại số dư/khoản vay/sổ tiết kiệm và liên hệ hỗ trợ nếu có sai lệch.',
+        'savings_err_deposit_not_active': 'Sổ tiết kiệm này vừa được xử lý bởi một thao tác khác (có thể đã đóng hoặc thay đổi), vui lòng làm mới trang và thử lại.',
+        'loan_err_not_active': 'Khoản vay này vừa được xử lý bởi một thao tác khác (có thể đã được trả), vui lòng làm mới trang và thử lại.',
         'rh_transfer_button': 'Quay về trang chuyển khoản',
         
         # --- THÔNG TIN CÁ NHÂN ---
@@ -479,6 +485,12 @@ DICTIONARY = {
         'rh_err_insufficient': 'Insufficient funds to complete this transfer. Please go back to transfer page.',
         'rh_err_system_busy': 'The system is processing multiple transactions, please try again shortly.',
         'sys_err_update_conflict': 'Unable to update data because the system is busy, please try again.',
+        'sys_err_quota_settle': 'The system is temporarily overloaded, so some automatic updates (maturity/interest) may be delayed and will retry automatically next time the page loads.',
+        'sys_err_quota': 'The Google Sheets system is currently overloaded (rate limit reached). Please wait a moment and try again.',
+        'tx_failed_recovered': 'The transaction failed due to a temporary system error. The amount/change has been AUTOMATICALLY REFUNDED — please try again.',
+        'tx_failed_unrecovered': 'The transaction hit a serious error and the system could NOT automatically reverse it. Please check your balance/loan/savings and contact support if anything looks incorrect.',
+        'savings_err_deposit_not_active': 'This savings deposit was just processed by another action (it may already be closed or changed) — please refresh the page and try again.',
+        'loan_err_not_active': 'This loan was just processed by another action (it may already be repaid) — please refresh the page and try again.',
         'rh_transfer_button': 'Back to transfer page',        
         
         # --- ACCOUNT SETTINGS ---

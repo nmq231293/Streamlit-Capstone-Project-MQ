@@ -24,10 +24,12 @@ if not st.session_state.login_state:
             st.switch_page('pages/signup.py')
 
 else:
-    from helpers import settle_matured_savings, settle_matured_loans, settle_monthly_interest, is_account_locked
-    settle_matured_savings(st.session_state.acc_num)
-    settle_matured_loans(st.session_state.acc_num)
-    settle_monthly_interest(st.session_state.acc_num)
+    from helpers import settle_matured_savings, settle_matured_loans, settle_monthly_interest, is_account_locked, run_safely
+    ok1, _ = run_safely(settle_matured_savings, st.session_state.acc_num)
+    ok2, _ = run_safely(settle_matured_loans, st.session_state.acc_num)
+    ok3, _ = run_safely(settle_monthly_interest, st.session_state.acc_num)
+    if not (ok1 and ok2 and ok3):
+        st.info(text['sys_err_quota_settle'])
 
     if is_account_locked(st.session_state.acc_num):
         st.error(text['account_locked_notice'])
