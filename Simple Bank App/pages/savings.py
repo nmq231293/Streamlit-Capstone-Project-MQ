@@ -1,11 +1,13 @@
 import streamlit as st
+from gspread.exceptions import APIError
 from helpers import (available_balance, login_check, settle_matured_savings,
                     open_savings_deposit, withdraw_savings_early,
                     partial_withdraw_savings, withdraw_all_savings,
                     toggle_savings_auto_renew, get_forced_paydown_info,
                     get_forced_paydown_info_for_reduction, savings_init,
                     SAVINGS_MIN_AMOUNT, RATE_TABLE, to_bool, loans_init,
-                    LOAN_BASE_MAX_AMOUNT, flash_success, show_flash_message)
+                    LOAN_BASE_MAX_AMOUNT, flash_success, show_flash_message,
+                    OptimisticLockError, TransactionFailedError, run_safely)
 
 if not st.session_state.login_state:
     st.switch_page('pages/home.py')
@@ -13,11 +15,31 @@ if not st.session_state.login_state:
 text = st.session_state.text
 stk = st.session_state.acc_num
 
-settle_matured_savings(stk)
+settle_ok, _ = run_safely(settle_matured_savings, stk)
 show_flash_message()
+if not settle_ok:
+    st.info(text['sys_err_quota_settle'])
 
 st.header(text["deposit_title"].upper(), anchor=False)
 st.write(f'{text["available_balance"]}: :green[{format(available_balance(stk), ",")} VNĐ]')
+
+# --- Trạng thái khóa: khi có BẤT KỲ thao tác rút tiền nào đang diễn ra (form đang mở, đang
+#     chờ chọn khoản vay để trả bớt, hoặc đang xác nhận rút tất cả) thì khóa TẤT CẢ nút khác
+#     (kể cả sổ khác và nút rút tất cả) để tránh 2 thao tác rút chồng chéo lên nhau. ---
+def _any_savings_form_open():
+    for key in list(st.session_state.keys()):
+        if isinstance(key, str) and (
+            key.startswith('show_wd_') or key.startswith('show_partial_')
+        ) and st.session_state.get(key):
+            return True
+    return False
+
+savings_locked = bool(
+    st.session_state.get('_pending_withdraw') or
+    st.session_state.get('_pending_partial_withdraw') or
+    st.session_state.get('confirm_withdraw_all') or
+    _any_savings_form_open()
+)
 
 # ==============================================================================
 # MỞ SỔ TIẾT KIỆM MỚI
@@ -35,7 +57,7 @@ for idx, term in enumerate(term_options):
         is_sel = st.session_state.savings_selected_term == term
         unit   = text['common_month_unit']
         label  = f":green[**{term} {unit}**]" if is_sel else f"{term} {unit}"
-        if st.button(label, key=f"sav_term_{term}"):
+        if st.button(label, key=f"sav_term_{term}", disabled=savings_locked):
             st.session_state.savings_selected_term = term
             st.rerun()
 
@@ -49,7 +71,7 @@ with st.form('form_open_savings', clear_on_submit=True):
     auto_renew   = st.checkbox(text['savings_lbl_auto_renew'], value=False)
     pass_confirm = st.text_input(text['savings_lbl_pass_confirm'], type='password', max_chars=24)
 
-    if st.form_submit_button(text['savings_btn_open']):
+    if st.form_submit_button(text['savings_btn_open'], disabled=savings_locked):
         if st.session_state.savings_selected_term is None:
             st.error(text['savings_err_no_term'])
         elif amount < SAVINGS_MIN_AMOUNT:
@@ -59,11 +81,16 @@ with st.form('form_open_savings', clear_on_submit=True):
         elif pass_confirm == '' or login_check(stk, pass_confirm) != 2:
             st.error(text['savings_err_pass_wrong'])
         else:
-            open_savings_deposit(stk, int(amount),
-                                st.session_state.savings_selected_term, auto_renew)
-            st.session_state.savings_selected_term = None
-            flash_success('savings_success_opened')
-            st.rerun()
+            try:
+                open_savings_deposit(stk, int(amount),
+                                    st.session_state.savings_selected_term, auto_renew)
+                st.session_state.savings_selected_term = None
+                flash_success('savings_success_opened')
+                st.rerun()
+            except TransactionFailedError as e:
+                st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+            except (APIError, OptimisticLockError):
+                st.error(text['sys_err_quota'])
 
 st.markdown('---')
 
@@ -77,7 +104,7 @@ hc1, hc2 = st.columns([3, 1])
 with hc1:
     st.markdown(f"**:violet[{text['savings_section_active']}]**")
 with hc2:
-    if not my_deposits.empty:
+    if not my_deposits.empty and not savings_locked:
         if st.button(text['savings_btn_withdraw_all_deposits'], key='btn_withdraw_all'):
             # Tính tổng tiết kiệm và hậu quả nếu rút hết
             _, loans_df = loans_init()
@@ -117,16 +144,21 @@ if st.session_state.get('confirm_withdraw_all'):
             if pass_all == '' or login_check(stk, pass_all) != 2:
                 st.error(text['savings_err_pass_wrong'])
             else:
-                total_p, total_fp = withdraw_all_savings(stk)
-                del st.session_state['confirm_withdraw_all']
-                st.session_state.pop('withdraw_all_forced_down', None)
-                st.session_state.pop('withdraw_all_debt', None)
-                if total_fp > 0:
-                    flash_success(text['savings_forced_paydown_notice'].format(
-                        format(total_fp, ',')), is_key=False)
-                else:
-                    flash_success('savings_success_early_withdrawn')
-                st.rerun()
+                try:
+                    total_p, total_fp, had_critical = withdraw_all_savings(stk)
+                    del st.session_state['confirm_withdraw_all']
+                    st.session_state.pop('withdraw_all_forced_down', None)
+                    st.session_state.pop('withdraw_all_debt', None)
+                    if total_fp > 0:
+                        msg = text['savings_forced_paydown_notice'].format(format(total_fp, ','))
+                    else:
+                        msg = text['savings_success_early_withdrawn']
+                    if had_critical:
+                        msg += ' ' + text['tx_failed_unrecovered']
+                    flash_success(msg, is_key=False)
+                    st.rerun()
+                except (APIError, OptimisticLockError):
+                    st.error(text['sys_err_quota'])
     with wa2:
         if st.button(f"**:red[{text['common_cancel']}]**",
                     key='btn_cancel_withdraw_all'):
@@ -138,8 +170,6 @@ if st.session_state.get('confirm_withdraw_all'):
 if my_deposits.empty:
     st.info(text['savings_no_active'])
 else:
-    pending = st.session_state.get('_pending_withdraw')
-
     for deposit_id, row in my_deposits.iterrows():
         with st.container(border=True):
             st.markdown('<div class="finance-card-marker"></div>', unsafe_allow_html=True)
@@ -156,18 +186,21 @@ else:
                 st.write(f"{text['savings_lbl_maturity_date']}: {row['Maturity_Date']}")
                 cur_ar = to_bool(row['Auto_Renew'])
                 new_ar = st.checkbox(text['savings_lbl_auto_renew'], value=cur_ar,
-                                    key=f"ar_{deposit_id}")
-                if new_ar != cur_ar:
-                    toggle_savings_auto_renew(deposit_id, new_ar)
-                    st.rerun()
+                                    key=f"ar_{deposit_id}", disabled=savings_locked)
+                if new_ar != cur_ar and not savings_locked:
+                    try:
+                        toggle_savings_auto_renew(deposit_id, new_ar)
+                        st.rerun()
+                    except (APIError, OptimisticLockError):
+                        st.error(text['sys_err_quota'])
 
             with c3:
                 show_key        = f"show_wd_{deposit_id}"
                 show_partial_key= f"show_partial_{deposit_id}"
 
-                # Ẩn nút khi đang xử lý pending paydown hoặc đang mở form khác
-                if not pending and not st.session_state.get(show_key) \
-                                and not st.session_state.get(show_partial_key):
+                # Chỉ hiện 2 nút bắt đầu thao tác khi KHÔNG có bất kỳ thao tác rút nào khác
+                # đang diễn ra (ở sổ này hay bất kỳ sổ nào khác, kể cả rút tất cả)
+                if not savings_locked:
                     btn_col1, btn_col2 = st.columns(2)
                     with btn_col1:
                         if st.button(text['savings_btn_withdraw_full'],
@@ -199,14 +232,25 @@ else:
                             if pass_wd == '' or login_check(stk, pass_wd) != 2:
                                 st.error(text['savings_err_pass_wrong'])
                             else:
-                                p, fp = withdraw_savings_early(stk, deposit_id)
-                                del st.session_state[show_key]
-                                if fp > 0:
-                                    flash_success(text['savings_forced_paydown_notice'].format(
-                                        format(fp, ',')), is_key=False)
-                                else:
-                                    flash_success('savings_success_early_withdrawn')
-                                st.rerun()
+                                try:
+                                    p, fp = withdraw_savings_early(stk, deposit_id)
+                                    del st.session_state[show_key]
+                                    if fp > 0:
+                                        flash_success(text['savings_forced_paydown_notice'].format(
+                                            format(fp, ',')), is_key=False)
+                                    else:
+                                        flash_success('savings_success_early_withdrawn')
+                                    st.rerun()
+                                except ValueError:
+                                    st.error(text['savings_err_deposit_not_active'])
+                                    del st.session_state[show_key]
+                                    st.rerun()
+                                except TransactionFailedError as e:
+                                    st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                                    del st.session_state[show_key]
+                                    st.rerun()
+                                except (APIError, OptimisticLockError):
+                                    st.error(text['sys_err_quota'])
                     with btn_cancel:
                         if st.button(f"**:red[{text['common_cancel']}]**",
                                     key=f"btn_cancel_wd_{deposit_id}"):
@@ -235,27 +279,41 @@ else:
                                 elif partial_amt <= 0 or partial_amt >= int(row['Principal']):
                                     st.error(text['savings_err_partial_invalid'])
                                 else:
-                                    # Kiểm tra trước khi thực thi
-                                    info = get_forced_paydown_info_for_reduction(stk, int(partial_amt))
-                                    if info['needs_paydown']:
-                                        # Lưu pending để hiện dialog chọn khoản vay
-                                        st.session_state['_pending_partial_withdraw'] = {
-                                            'deposit_id': deposit_id,
-                                            'withdraw_amount': int(partial_amt),
-                                            'info': info,
-                                            'from_partial_key': show_partial_key,
-                                        }
-                                        del st.session_state[show_partial_key]
-                                        st.rerun()
-                                    else:
-                                        try:
-                                            amt, fp = partial_withdraw_savings(
-                                                stk, deposit_id, int(partial_amt))
+                                    try:
+                                        info = get_forced_paydown_info_for_reduction(stk, int(partial_amt))
+                                    except APIError:
+                                        st.error(text['sys_err_quota'])
+                                        info = None
+                                    if info is not None:
+                                        if info['needs_paydown']:
+                                            st.session_state['_pending_partial_withdraw'] = {
+                                                'deposit_id': deposit_id,
+                                                'withdraw_amount': int(partial_amt),
+                                                'info': info,
+                                                'from_partial_key': show_partial_key,
+                                            }
                                             del st.session_state[show_partial_key]
-                                            flash_success('savings_success_early_withdrawn')
                                             st.rerun()
-                                        except ValueError:
-                                            st.error(text['savings_err_partial_invalid'])
+                                        else:
+                                            try:
+                                                amt, fp = partial_withdraw_savings(
+                                                    stk, deposit_id, int(partial_amt))
+                                                del st.session_state[show_partial_key]
+                                                flash_success('savings_success_early_withdrawn')
+                                                st.rerun()
+                                            except ValueError as e:
+                                                if str(e) == "DEPOSIT_NOT_ACTIVE":
+                                                    st.error(text['savings_err_deposit_not_active'])
+                                                    del st.session_state[show_partial_key]
+                                                    st.rerun()
+                                                else:
+                                                    st.error(text['savings_err_partial_invalid'])
+                                            except TransactionFailedError as e:
+                                                st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                                                del st.session_state[show_partial_key]
+                                                st.rerun()
+                                            except (APIError, OptimisticLockError):
+                                                st.error(text['sys_err_quota'])
                         with pfc2:
                             if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
                                 del st.session_state[show_partial_key]
@@ -264,13 +322,13 @@ else:
     # ==============================================================================
     # FORCED PAYDOWN DIALOG
     # ==============================================================================
+    pending = st.session_state.get('_pending_withdraw')
     if pending:
         deposit_id = pending['deposit_id']
         info       = pending['info']
         st.markdown('---')
         st.warning(text['loan_paydown_needed'])
 
-        # Hiển thị thông tin cần trả
         if info.get('pref_excess', 0) > 0:
             st.info(text['loan_paydown_pref_required'].format(
                 format(info['pref_excess'], ',')))
@@ -282,11 +340,9 @@ else:
         loans_to_paydown = {}
 
         if mode == text['loan_paydown_auto']:
-            # Tự động: pref trước (để khôi phục điều kiện), rồi lãi cao nhất
             pref_remaining = info.get('pref_excess', 0)
             limit_remaining = info.get('limit_excess', 0)
 
-            # Bước 1: pref loans
             for loan in info.get('pref_loans', []):
                 if pref_remaining <= 0:
                     break
@@ -294,7 +350,6 @@ else:
                 loans_to_paydown[loan['loan_id']] = pay
                 pref_remaining -= pay
 
-            # Bước 2: other loans lãi cao nhất
             for loan in info.get('other_loans', []):
                 if limit_remaining <= 0:
                     break
@@ -302,7 +357,6 @@ else:
                 loans_to_paydown[loan['loan_id']] = loans_to_paydown.get(loan['loan_id'], 0) + pay
                 limit_remaining -= pay
 
-            # Bước 3: vẫn còn thiếu → tiếp tục pref loans
             if limit_remaining > 0:
                 for loan in info.get('pref_loans', []):
                     if limit_remaining <= 0:
@@ -314,7 +368,6 @@ else:
                         loans_to_paydown[loan['loan_id']] = already + pay
                         limit_remaining -= pay
 
-            # Hiển thị kết quả tự động
             for loan in info.get('pref_loans', []) + info.get('other_loans', []):
                 if loan['loan_id'] in loans_to_paydown:
                     amt = loans_to_paydown[loan['loan_id']]
@@ -328,7 +381,6 @@ else:
             total_selected = 0
             pref_required = info.get('pref_excess', 0)
 
-            # Pref loans — bắt buộc xử lý trước
             if info.get('pref_loans'):
                 st.markdown(f"**{text['loan_paydown_pref_section']}**")
                 for loan in info['pref_loans']:
@@ -348,7 +400,6 @@ else:
                             total_pref_selected += sel
                             total_selected += sel
 
-            # Other loans
             if info.get('other_loans'):
                 st.markdown(f"**{text['loan_paydown_other_section']}**")
                 for loan in info['other_loans']:
@@ -367,7 +418,6 @@ else:
                             loans_to_paydown[loan['loan_id']] = sel
                             total_selected += sel
 
-            # Validation messages
             if pref_required > 0 and total_pref_selected < pref_required:
                 st.warning(text['loan_paydown_pref_required'].format(
                     format(pref_required, ',')))
@@ -375,13 +425,11 @@ else:
                 st.warning(text['loan_paydown_insufficient'].format(
                     format(total_selected, ','), format(info['total_excess'], ',')))
 
-        # Password + confirm/cancel — layout chuẩn
         pass_pd = st.text_input(text['savings_lbl_pass_confirm'], type='password',
                                 max_chars=24, key='pass_paydown')
         pa, pb = st.columns(2)
         with pa:
             if st.button(f"**:green[{text['loan_paydown_confirm']}]**", key='btn_cfm_pd'):
-                # Validate
                 total_pref_val = sum(
                     loans_to_paydown.get(l['loan_id'], 0)
                     for l in info.get('pref_loans', [])
@@ -404,15 +452,27 @@ else:
                     st.error(text['savings_err_pass_wrong'])
                 else:
                     manual = loans_to_paydown if mode == text['loan_paydown_manual'] else None
-                    p, fp = withdraw_savings_early(stk, deposit_id, manual)
-                    del st.session_state['_pending_withdraw']
-                    flash_success(text['savings_forced_paydown_notice'].format(
-                        format(fp, ',')), is_key=False)
-                    st.rerun()
+                    try:
+                        p, fp = withdraw_savings_early(stk, deposit_id, manual)
+                        del st.session_state['_pending_withdraw']
+                        flash_success(text['savings_forced_paydown_notice'].format(
+                            format(fp, ',')), is_key=False)
+                        st.rerun()
+                    except ValueError:
+                        st.error(text['savings_err_deposit_not_active'])
+                        del st.session_state['_pending_withdraw']
+                        st.rerun()
+                    except TransactionFailedError as e:
+                        st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                        del st.session_state['_pending_withdraw']
+                        st.rerun()
+                    except (APIError, OptimisticLockError):
+                        st.error(text['sys_err_quota'])
         with pb:
             if st.button(f"**:red[{text['common_cancel']}]**", key='btn_cancel_pd'):
                 del st.session_state['_pending_withdraw']
                 st.rerun()
+
     # Partial withdrawal paydown dialog
     partial_pending = st.session_state.get('_pending_partial_withdraw')
     if partial_pending:
@@ -522,7 +582,6 @@ else:
                 st.warning(text['loan_paydown_insufficient'].format(
                     format(total_sel, ','), format(info_p['total_excess'], ',')))
 
-        # Password + confirm/cancel
         pass_pp = st.text_input(text['savings_lbl_pass_confirm'], type='password',
                                 max_chars=24, key='pass_partial_paydown')
         pp_a, pp_b = st.columns(2)
@@ -561,8 +620,19 @@ else:
                         else:
                             flash_success('savings_success_early_withdrawn')
                         st.rerun()
-                    except ValueError:
-                        st.error(text['savings_err_partial_invalid'])
+                    except ValueError as e:
+                        if str(e) == "DEPOSIT_NOT_ACTIVE":
+                            st.error(text['savings_err_deposit_not_active'])
+                            del st.session_state['_pending_partial_withdraw']
+                            st.rerun()
+                        else:
+                            st.error(text['savings_err_partial_invalid'])
+                    except TransactionFailedError as e:
+                        st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                        del st.session_state['_pending_partial_withdraw']
+                        st.rerun()
+                    except (APIError, OptimisticLockError):
+                        st.error(text['sys_err_quota'])
         with pp_b:
             if st.button(f"**:red[{text['common_cancel']}]**",
                         key='btn_cancel_partial_pd'):
