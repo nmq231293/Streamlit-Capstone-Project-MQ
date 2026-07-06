@@ -1,4 +1,5 @@
 import streamlit as st
+from gspread.exceptions import APIError
 from helpers import (available_balance, login_check, settle_matured_loans,
                     settle_monthly_interest, open_loan, open_split_loan,
                     repay_loan_early, partial_repay_loan, repay_all_loans,
@@ -12,7 +13,8 @@ from helpers import (available_balance, login_check, settle_matured_loans,
                     LOAN_PREFERENTIAL_RATE, LOAN_RATE_FLOOR, LOAN_PENALTY_RATE,
                     ON_TIME_FOR_TIER_2, ON_TIME_FOR_TIER_3,
                     LOAN_TIER2_REDUCTION, LOAN_TIER3_REDUCTION,
-                    flash_success, show_flash_message)
+                    flash_success, show_flash_message,
+                    OptimisticLockError, TransactionFailedError, run_safely)
 
 if not st.session_state.login_state:
     st.switch_page('pages/home.py')
@@ -20,9 +22,11 @@ if not st.session_state.login_state:
 text = st.session_state.text
 stk = st.session_state.acc_num
 
-settle_matured_loans(stk)
-settle_monthly_interest(stk)
+ok1, _ = run_safely(settle_matured_loans, stk)
+ok2, _ = run_safely(settle_monthly_interest, stk)
 show_flash_message()
+if not (ok1 and ok2):
+    st.info(text['sys_err_quota_settle'])
 
 if is_account_locked(stk):
     st.header(text['withdraw_title'].upper(), anchor=False)
@@ -30,6 +34,25 @@ if is_account_locked(stk):
     st.stop()
 
 st.header(text['withdraw_title'].upper(), anchor=False)
+
+# --- Trạng thái khóa: khi có BẤT KỲ thao tác trả nợ/vay/trả lãi nào đang diễn ra thì khóa
+#     TẤT CẢ nút khác (khoản vay khác, mở vay mới, trả tất cả...) để tránh chồng chéo. ---
+def _any_loan_form_open():
+    for key in list(st.session_state.keys()):
+        if isinstance(key, str) and (
+            key.startswith('show_repay_full_') or
+            key.startswith('show_repay_partial_') or
+            key.startswith('show_repay_min_')
+        ) and st.session_state.get(key):
+            return True
+    return False
+
+loans_locked = bool(
+    st.session_state.get('confirm_repay_all') or
+    st.session_state.get('show_pay_interest_confirm') or
+    st.session_state.get('loan_split_pending') or
+    _any_loan_form_open()
+)
 
 bal = available_balance(stk)
 loan_limit     = get_loan_limit(stk)
@@ -57,11 +80,7 @@ if summary:
         st.success(text['loan_interest_already_paid'])
     else:
         show_pay_key = 'show_pay_interest_confirm'
-        if not st.session_state.get(show_pay_key):
-            if st.button(text['loan_pay_now'], icon='💳', key='btn_pay_interest'):
-                st.session_state[show_pay_key] = True
-                st.rerun()
-        else:
+        if st.session_state.get(show_pay_key):
             with st.form('form_pay_interest_confirm', clear_on_submit=True):
                 st.warning(f"{text['loan_monthly_interest']}: "
                         f"**{format(summary['total'], ',')} VNĐ**")
@@ -73,18 +92,24 @@ if summary:
                         if pass_interest == '' or login_check(stk, pass_interest) != 2:
                             st.error(text['savings_err_pass_wrong'])
                         else:
-                            ok, total = pay_interest_now(stk)
-                            del st.session_state[show_pay_key]
-                            flash_success(
-                                text['loan_interest_paid_success'].format(format(total, ',')),
-                                is_key=False
-                            ) if ok else flash_success(text['loan_interest_insufficient'], is_key=False)
-                            st.rerun()
+                            try:
+                                ok, total = pay_interest_now(stk)
+                                del st.session_state[show_pay_key]
+                                flash_success(
+                                    text['loan_interest_paid_success'].format(format(total, ',')),
+                                    is_key=False
+                                ) if ok else flash_success(text['loan_interest_insufficient'], is_key=False)
+                                st.rerun()
+                            except (APIError, OptimisticLockError):
+                                st.error(text['sys_err_quota'])
                 with pi2:
                     if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
                         del st.session_state[show_pay_key]
                         st.rerun()
-                        
+        elif not loans_locked:
+            if st.button(text['loan_pay_now'], icon='💳', key='btn_pay_interest'):
+                st.session_state[show_pay_key] = True
+                st.rerun()
 
 # Rate info dialog
 @st.dialog(f"📋 :red[Loan Rate Policy / Chính Sách Lãi Suất]", width='large')
@@ -131,7 +156,7 @@ for idx, term in enumerate(term_options):
         is_sel = st.session_state.loan_selected_term == term
         unit   = text['common_month_unit']
         label  = f":green[**{term} {unit}**]" if is_sel else f"{term} {unit}"
-        if st.button(label, key=f"loan_term_{term}"):
+        if st.button(label, key=f"loan_term_{term}", disabled=loans_locked):
             st.session_state.loan_selected_term = term
             st.rerun()
 
@@ -155,6 +180,10 @@ if st.session_state.get('loan_split_pending'):
                 st.rerun()
             except ValueError:
                 st.error(text['loan_err_limit_exceeded'])
+            except TransactionFailedError as e:
+                st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+            except (APIError, OptimisticLockError):
+                st.error(text['sys_err_quota'])
     with sb:
         if st.button(text['loan_split_adjust'], key='btn_adjust_split'):
             del st.session_state['loan_split_pending']
@@ -174,7 +203,6 @@ else:
             max_value=max(available_borrow, LOAN_MIN_AMOUNT),
             step=100000, format='%d'
         )
-        # Real-time rate preview
         if amount >= LOAN_MIN_AMOUNT and st.session_state.loan_selected_term:
             split_info = check_loan_split(stk, int(amount),
                                         st.session_state.loan_selected_term,
@@ -192,7 +220,7 @@ else:
         pass_confirm = st.text_input(text['savings_lbl_pass_confirm'],
                                     type='password', max_chars=24)
 
-        if st.form_submit_button(text['loan_btn_open']):
+        if st.form_submit_button(text['loan_btn_open'], disabled=loans_locked):
             if st.session_state.loan_selected_term is None:
                 st.error(text['loan_err_no_term'])
             elif amount < LOAN_MIN_AMOUNT or amount > available_borrow:
@@ -204,7 +232,6 @@ else:
                                             st.session_state.loan_selected_term,
                                             current_debt)
                 if split_info['needs_split']:
-                    # Lưu pending split — password đã xác thực, không hỏi lại
                     st.session_state['loan_split_pending'] = {
                         'pref_amount':    split_info['pref_amount'],
                         'standard_amount':split_info['standard_amount'],
@@ -222,6 +249,10 @@ else:
                         st.rerun()
                     except ValueError:
                         st.error(text['loan_err_limit_exceeded'])
+                    except TransactionFailedError as e:
+                        st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                    except (APIError, OptimisticLockError):
+                        st.error(text['sys_err_quota'])
 
 st.markdown('---')
 
@@ -238,7 +269,7 @@ lh1, lh2 = st.columns([3, 1])
 with lh1:
     st.markdown(f"**:violet[{text['loan_section_active']}]**")
 with lh2:
-    if not my_loans.empty:
+    if not my_loans.empty and not loans_locked:
         if st.button(text['loan_btn_repay_all_loans'], key='btn_repay_all'):
             st.session_state['confirm_repay_all'] = True
             st.rerun()
@@ -253,11 +284,16 @@ if st.session_state.get('confirm_repay_all'):
             if pass_repay_all == '' or login_check(stk, pass_repay_all) != 2:
                 st.error(text['savings_err_pass_wrong'])
             else:
-                cnt_ok, total, cnt_fail = repay_all_loans(stk)
-                del st.session_state['confirm_repay_all']
-                flash_success(text['loan_repay_all_result'].format(
-                    cnt_ok, format(total, ','), cnt_fail), is_key=False)
-                st.rerun()
+                try:
+                    cnt_ok, total, cnt_fail, had_critical = repay_all_loans(stk)
+                    del st.session_state['confirm_repay_all']
+                    msg = text['loan_repay_all_result'].format(cnt_ok, format(total, ','), cnt_fail)
+                    if had_critical:
+                        msg += ' ' + text['tx_failed_unrecovered']
+                    flash_success(msg, is_key=False)
+                    st.rerun()
+                except (APIError, OptimisticLockError):
+                    st.error(text['sys_err_quota'])
     with ra2:
         if st.button(f"**:red[{text['common_cancel']}]**", key='btn_cancel_repay_all'):
             del st.session_state['confirm_repay_all']
@@ -287,7 +323,6 @@ else:
                         f":{color}[**{format(principal, ',')} VNĐ**]")
                 st.write(f"{term} {text['common_month_unit']} "
                         f"· {rate*100:.2f}%{text['common_per_year']}")
-                # Rate status caption
                 if is_overdue_loan:
                     st.caption(f":red[{text['loan_penalty_notice']}]")
                 elif is_pref:
@@ -311,18 +346,20 @@ else:
                 st.write(f"{text['savings_lbl_maturity_date']}: {row['Maturity_Date']}")
                 auto_pay = to_bool(row['Auto_Pay'])
                 new_auto = st.checkbox(text['loan_auto_pay'], value=auto_pay,
-                                    key=f"ap_{loan_id}")
-                if new_auto != auto_pay:
-                    toggle_loan_auto_pay(loan_id, new_auto)
-                    st.rerun()
+                                    key=f"ap_{loan_id}", disabled=loans_locked)
+                if new_auto != auto_pay and not loans_locked:
+                    try:
+                        toggle_loan_auto_pay(loan_id, new_auto)
+                        st.rerun()
+                    except (APIError, OptimisticLockError):
+                        st.error(text['sys_err_quota'])
 
             with c3:
                 show_full    = f"show_repay_full_{loan_id}"
                 show_partial = f"show_repay_partial_{loan_id}"
                 show_min     = f"show_repay_min_{loan_id}"
 
-                # 3 nút action
-                if not any(st.session_state.get(k) for k in [show_full, show_partial, show_min]):
+                if not loans_locked:
                     b1, b2, b3 = st.columns(3)
                     with b1:
                         if st.button(text['loan_btn_repay_full'],
@@ -357,8 +394,19 @@ else:
                                     del st.session_state[show_full]
                                     flash_success('loan_success_repaid')
                                     st.rerun()
-                                except ValueError:
-                                    st.error(text['loan_err_insufficient_repay'])
+                                except ValueError as e:
+                                    if str(e) == "LOAN_NOT_ACTIVE":
+                                        st.error(text['loan_err_not_active'])
+                                        del st.session_state[show_full]
+                                        st.rerun()
+                                    else:
+                                        st.error(text['loan_err_insufficient_repay'])
+                                except TransactionFailedError as e:
+                                    st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                                    del st.session_state[show_full]
+                                    st.rerun()
+                                except (APIError, OptimisticLockError):
+                                    st.error(text['sys_err_quota'])
                     with cf2:
                         if st.button(f"**:red[{text['common_cancel']}]**",
                                     key=f"btn_cancel_full_{loan_id}"):
@@ -388,17 +436,20 @@ else:
                                 if pass_m == '' or login_check(stk, pass_m) != 2:
                                     st.error(text['savings_err_pass_wrong'])
                                 else:
-                                    ok, paid, already = pay_loan_interest(stk, loan_id)
-                                    del st.session_state[show_min]
-                                    if already:
-                                        flash_success(text['loan_interest_this_loan_paid'], is_key=False)
-                                    elif ok:
-                                        flash_success(
-                                            text['loan_interest_paid_success'].format(format(paid, ',')),
-                                            is_key=False)
-                                    else:
-                                        flash_success(text['loan_interest_insufficient'], is_key=False)
-                                    st.rerun()
+                                    try:
+                                        ok, paid, already = pay_loan_interest(stk, loan_id)
+                                        del st.session_state[show_min]
+                                        if already:
+                                            flash_success(text['loan_interest_this_loan_paid'], is_key=False)
+                                        elif ok:
+                                            flash_success(
+                                                text['loan_interest_paid_success'].format(format(paid, ',')),
+                                                is_key=False)
+                                        else:
+                                            flash_success(text['loan_interest_insufficient'], is_key=False)
+                                        st.rerun()
+                                    except (APIError, OptimisticLockError):
+                                        st.error(text['sys_err_quota'])
                         with cm2:
                             if st.button(f"**:red[{text['common_cancel']}]**",
                                         key=f"btn_cancel_min_{loan_id}"):
@@ -438,10 +489,20 @@ else:
                                         st.rerun()
                                     except ValueError as e:
                                         err = str(e)
-                                        if 'INSUFFICIENT' in err:
+                                        if err == 'LOAN_NOT_ACTIVE':
+                                            st.error(text['loan_err_not_active'])
+                                            del st.session_state[show_partial]
+                                            st.rerun()
+                                        elif 'INSUFFICIENT' in err:
                                             st.error(text['loan_err_insufficient_repay'])
                                         else:
                                             st.error(text['loan_err_partial_invalid'])
+                                    except TransactionFailedError as e:
+                                        st.error(text['tx_failed_recovered'] if e.recovered else text['tx_failed_unrecovered'])
+                                        del st.session_state[show_partial]
+                                        st.rerun()
+                                    except (APIError, OptimisticLockError):
+                                        st.error(text['sys_err_quota'])
                         with pp2:
                             if st.form_submit_button(
                                     f"**:red[{text['common_cancel']}]**"):

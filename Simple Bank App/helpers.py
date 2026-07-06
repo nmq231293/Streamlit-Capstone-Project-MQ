@@ -51,7 +51,7 @@ def embed_chatbot():
         st.session_state.chat_open = not st.session_state.chat_open
 
     # 3. Tạo nút bấm trước để lấy label động dựa trên trạng thái
-    button_label = f"❌ :yellow[{text['AI_chatbot_close_button']}]" if st.session_state.chat_open else f"💬 :yellow[{text['AI_chatbot_title']}]"
+    button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
 
     # 4. Tính toán thông số CSS dựa trên trạng thái đã được chuẩn hóa
     is_open = st.session_state.chat_open
@@ -171,7 +171,7 @@ def get_bank_account_worksheet():
     return sh.worksheet("bank_account")
 
 # --- Hàm tự động chờ và thử lại khi gặp lỗi quota tạm thời (HTTP 429) từ Google Sheets API ---
-def with_quota_retry(func, max_attempts=4, base_delay=2):
+def with_quota_retry(func, max_attempts=5, base_delay=2):
     for attempt in range(max_attempts):
         try:
             return func()
@@ -342,6 +342,43 @@ class OptimisticLockError(Exception):
     """Báo hiệu việc ghi thất bại vì version đã bị người khác thay đổi trước."""
     pass
 
+# --- Lỗi khi một giao dịch nhiều bước (2-phase) thất bại giữa chừng do sự cố hệ thống ---
+class TransactionFailedError(Exception):
+    """Báo hiệu 1 giao dịch gồm nhiều bước ghi dữ liệu bị lỗi ở bước sau, sau khi bước đầu
+    đã thành công (vd: đã trừ tiền nhưng cập nhật khoản vay thất bại do quota Google Sheets).
+    recovered=True  -> hệ thống đã tự động hoàn tác (rollback) bước đầu thành công.
+    recovered=False -> hoàn tác cũng thất bại, dữ liệu có thể không nhất quán, cần người
+                        dùng tự kiểm tra lại số dư/khoản vay/sổ tiết kiệm.
+    KHÔNG chứa text hiển thị - trang UI tự chọn bản dịch phù hợp qua dictionary_data.py."""
+    def __init__(self, recovered: bool):
+        self.recovered = recovered
+        super().__init__(f"TRANSACTION_FAILED(recovered={recovered})")
+
+# --- Hàm chạy 1 bước rủi ro với cơ chế hoàn tác nếu lỗi ---
+def _run_with_compensation(primary_action, compensating_action):
+    """Chạy 1 bước rủi ro (primary_action). Nếu lỗi, chạy compensating_action để hoàn tác
+    bước TRƯỚC ĐÓ đã thành công - tránh tình trạng 'trừ tiền nhưng không ghi nhận' (double spend)."""
+    try:
+        primary_action()
+    except Exception as e:
+        try:
+            compensating_action()
+        except Exception:
+            raise TransactionFailedError(recovered=False) from e
+        else:
+            raise TransactionFailedError(recovered=True) from e
+
+# --- Hàm chạy 1 hàm bất kỳ, 'nuốt' lỗi hệ thống tạm thời (Google Sheets quota) để tránh crash toàn bộ trang ---
+def run_safely(func, *args, **kwargs):
+    """Chạy 1 hàm bất kỳ, 'nuốt' lỗi hệ thống tạm thời (Google Sheets quota) để tránh crash
+    toàn bộ trang - dùng cho tác vụ nền không bắt buộc thành công ngay lập tức (vd: settle_*
+    chạy mỗi lần tải trang, có thể tự thử lại ở lần sau).
+    Trả về (success: bool, result hoặc None)."""
+    try:
+        return True, func(*args, **kwargs)
+    except APIError:
+        return False, None
+    
 # --- Hàm kiểm tra phiên bản dòng để tạo giao dịch ---
 def update_accounts_safely(account_ids: list, mutation_function):
     """
@@ -528,7 +565,18 @@ def open_savings_deposit(stk, amount, term_months, auto_renew=False):
 
     def deduct_balance(current_df):
         current_df.loc[stk, 'Balance'] -= amount
-    update_accounts_safely([stk], deduct_balance)
+
+    def void_new_deposit():
+        # Trừ tiền thất bại -> hủy sổ vừa tạo (soft-delete) để không bị "miễn phí"
+        def apply_void(df_sav):
+            df_sav.loc[deposit_id, 'Status'] = 'void'
+        update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [deposit_id], apply_void)
+
+    _run_with_compensation(
+        lambda: update_accounts_safely([stk], deduct_balance),
+        void_new_deposit,
+    )
+
     log_transaction(stk, TX_SAVINGS_OPEN, amount, reference_id=deposit_id)
     return deposit_id
 
@@ -655,6 +703,8 @@ def partial_repay_loan(stk, loan_id, repay_principal):
     repay_principal: số TIỀN GỐC muốn trả (không phải tổng tiền).
     Returns: total_repaid (gốc + lãi tương ứng)"""
     _, loans_df = loans_init()
+    if loan_id not in loans_df.index or loans_df.loc[loan_id, 'Status'] not in ('active', 'overdue'):
+        raise ValueError("LOAN_NOT_ACTIVE")
     loan_row = loans_df.loc[loan_id]
     old_principal = int(loan_row['Principal'])
 
@@ -672,7 +722,12 @@ def partial_repay_loan(stk, loan_id, repay_principal):
     new_p = old_principal - repay_principal
     def reduce_principal(current_df):
         current_df.loc[loan_id, 'Principal'] = new_p
-    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], reduce_principal)
+    def refund_balance(current_df):
+        current_df.loc[stk, 'Balance'] += total_repaid
+    _run_with_compensation(
+        lambda: update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], reduce_principal),
+        lambda: update_accounts_safely([stk], refund_balance),
+    )
 
     log_transaction(stk, TX_LOAN_PARTIAL_REPAY, total_repaid, reference_id=loan_id)
     return total_repaid
@@ -681,10 +736,10 @@ def partial_repay_loan(stk, loan_id, repay_principal):
 def pay_loan_interest(stk, loan_id):
     """Trả lãi cho MỘT khoản vay cụ thể trong tháng hiện tại.
     Returns: (success, amount_paid, already_paid)
-      - already_paid=True: tháng này đã trả rồi, không trừ thêm
+    - already_paid=True: tháng này đã trả rồi, không trừ thêm
     """
     _, loans_df = loans_init()
-    if loan_id not in loans_df.index:
+    if loan_id not in loans_df.index or loans_df.loc[loan_id, 'Status'] not in ('active', 'overdue'):
         return False, 0, False
 
     row = loans_df.loc[loan_id]
@@ -745,7 +800,7 @@ def _record_interest_payment(loan_id, payment_date, on_time):
 # --- Hàm trả tất cả khoản vay đang active/overdue ---
 def repay_all_loans(stk):
     """Trả tất cả khoản vay đang active/overdue.
-    Returns: (count_repaid, total_repaid, count_failed)"""
+    Returns: (count_repaid, total_repaid, count_failed, had_critical_error)"""
     _, loans_df = loans_init()
     loan_ids = loans_df[
         (loans_df['Account_ID'] == stk) &
@@ -753,6 +808,7 @@ def repay_all_loans(stk):
     ].index.tolist()
 
     count_ok, total, count_fail = 0, 0, 0
+    had_critical_error = False
     for lid in loan_ids:
         try:
             amount = repay_loan_early(stk, lid)
@@ -760,27 +816,35 @@ def repay_all_loans(stk):
             count_ok += 1
         except ValueError:
             count_fail += 1
-    return count_ok, total, count_fail
+        except TransactionFailedError as e:
+            count_fail += 1
+            if not e.recovered:
+                had_critical_error = True
+    return count_ok, total, count_fail, had_critical_error
 
 
 # --- Hàm rút tất cả sổ tiết kiệm đang active ---
 def withdraw_all_savings(stk):
     """Rút tất cả sổ tiết kiệm đang active.
-    Returns: (total_principal, total_forced_paydown)"""
+    Returns: (total_principal, total_forced_paydown, had_critical_error)"""
     _, savings_df = savings_init()
     deposit_ids = savings_df[
         (savings_df['Account_ID'] == stk) & (savings_df['Status'] == 'active')
     ].index.tolist()
 
     total_p, total_fp = 0, 0
+    had_critical_error = False
     for did in deposit_ids:
         try:
             p, fp = withdraw_savings_early(stk, did)
             total_p += p
             total_fp += fp
+        except TransactionFailedError as e:
+            if not e.recovered:
+                had_critical_error = True
         except Exception:
             pass
-    return total_p, total_fp
+    return total_p, total_fp, had_critical_error
 
 # --- Hàm rút tiết kiệm trước hạn, tự động trả bớt nợ nếu vượt hạn mức ---
 def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
@@ -794,6 +858,8 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
     """
     # Đọc thông tin sổ tiết kiệm
     _, savings_df = savings_init()
+    if deposit_id not in savings_df.index or savings_df.loc[deposit_id, 'Status'] != 'active':
+        raise ValueError("DEPOSIT_NOT_ACTIVE")
     principal = int(savings_df.loc[deposit_id, 'Principal'])
 
     # Đóng sổ tiết kiệm
@@ -932,7 +998,12 @@ def withdraw_savings_early(stk, deposit_id, loans_to_paydown=None):
 
     def credit_balance(current_df):
         current_df.loc[stk, 'Balance'] += amount_to_credit
-    update_accounts_safely([stk], credit_balance)
+    try:
+        update_accounts_safely([stk], credit_balance)
+    except Exception as e:
+        # Sổ đã đóng và (có thể) đã trả bớt nợ - hoàn tác các bước này quá rủi ro nên KHÔNG
+        # tự rollback ở đây, báo lỗi rõ ràng để người dùng tự kiểm tra (tiền chưa được cộng).
+        raise TransactionFailedError(recovered=False) from e
 
     log_transaction(stk, TX_SAVINGS_EARLY, principal, reference_id=deposit_id)
     return principal, total_paid_from_savings
@@ -947,6 +1018,8 @@ def partial_withdraw_savings(stk, deposit_id, withdraw_amount, loans_to_paydown=
     Returns: (withdraw_amount, forced_paydown_amount)
     """
     _, savings_df = savings_init()
+    if deposit_id not in savings_df.index or savings_df.loc[deposit_id, 'Status'] != 'active':
+        raise ValueError("DEPOSIT_NOT_ACTIVE")
     current_principal = int(savings_df.loc[deposit_id, 'Principal'])
 
     if withdraw_amount <= 0 or withdraw_amount >= current_principal:
@@ -1059,7 +1132,10 @@ def partial_withdraw_savings(stk, deposit_id, withdraw_amount, loans_to_paydown=
     amount_to_credit = withdraw_amount - total_paid
     def credit_balance(current_df):
         current_df.loc[stk, 'Balance'] += amount_to_credit
-    update_accounts_safely([stk], credit_balance)
+    try:
+        update_accounts_safely([stk], credit_balance)
+    except Exception as e:
+        raise TransactionFailedError(recovered=False) from e
     log_transaction(stk, TX_SAVINGS_PARTIAL, withdraw_amount, reference_id=deposit_id)
     return withdraw_amount, total_paid
 
@@ -1507,7 +1583,16 @@ def open_loan(stk, amount, term_months):
 
     def add_balance(current_df):
         current_df.loc[stk, 'Balance'] += amount
-    update_accounts_safely([stk], add_balance)
+
+    def void_new_loan():
+        def apply_void(df_loan):
+            df_loan.loc[loan_id, 'Status'] = 'void'
+        update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], apply_void)
+
+    _run_with_compensation(
+        lambda: update_accounts_safely([stk], add_balance),
+        void_new_loan,
+    )
     log_transaction(stk, TX_LOAN_OPEN, amount, reference_id=loan_id)
     return loan_id, is_pref
 
@@ -1521,20 +1606,34 @@ def open_split_loan(stk, pref_amount, standard_amount, term_months):
         raise ValueError("LOAN_LIMIT_EXCEEDED")
 
     loan_ids = []
+    loan_amounts = {}
     if pref_amount > 0:
         lid = _create_loan_record(stk, pref_amount, LOAN_PREFERENTIAL_RATE, term_months)
-        log_transaction(stk, TX_LOAN_OPEN, pref_amount, reference_id=lid)
         loan_ids.append(lid)
+        loan_amounts[lid] = pref_amount
 
     if standard_amount > 0:
         std_rate = LOAN_RATE_TABLE.get(term_months, 0.10)
         lid = _create_loan_record(stk, standard_amount, std_rate, term_months)
-        log_transaction(stk, TX_LOAN_OPEN, standard_amount, reference_id=lid)
         loan_ids.append(lid)
+        loan_amounts[lid] = standard_amount
 
     def add_balance(current_df):
         current_df.loc[stk, 'Balance'] += total
-    update_accounts_safely([stk], add_balance)
+
+    def void_new_loans():
+        def apply_void(df_loan):
+            for lid in loan_ids:
+                df_loan.loc[lid, 'Status'] = 'void'
+        update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', loan_ids, apply_void)
+
+    _run_with_compensation(
+        lambda: update_accounts_safely([stk], add_balance),
+        void_new_loans,
+    )
+
+    for lid in loan_ids:
+        log_transaction(stk, TX_LOAN_OPEN, loan_amounts[lid], reference_id=lid)
     return loan_ids
 
 # --- Hàm tự động trả nợ các khoản vay đã đến hạn ---
@@ -1579,10 +1678,12 @@ def settle_matured_loans(stk):
 def repay_loan_early(stk, loan_id):
     """Trả nợ trước hạn - lãi tính theo số ngày thực vay."""
     _, loans_df = loans_init()
+    if loan_id not in loans_df.index or loans_df.loc[loan_id, 'Status'] not in ('active', 'overdue'):
+        raise ValueError("LOAN_NOT_ACTIVE")
     loan_row = loans_df.loc[loan_id]
-    
+
     repay_amount = calc_loan_repayment(loan_row)  # trả toàn bộ gốc + lãi
-    
+
     def deduct_balance(current_df):
         if current_df.loc[stk, 'Balance'] < repay_amount:
             raise ValueError("INSUFFICIENT_FUNDS")
@@ -1591,8 +1692,13 @@ def repay_loan_early(stk, loan_id):
 
     def close_loan(current_df):
         current_df.loc[loan_id, 'Status'] = 'closed'
-    update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], close_loan)
-    
+    def refund_balance(current_df):
+        current_df.loc[stk, 'Balance'] += repay_amount
+    _run_with_compensation(
+        lambda: update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [loan_id], close_loan),
+        lambda: update_accounts_safely([stk], refund_balance),
+    )
+
     log_transaction(stk, TX_LOAN_REPAY_EARLY, repay_amount, reference_id=loan_id)
     return repay_amount
 
