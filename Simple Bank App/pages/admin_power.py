@@ -47,9 +47,9 @@ with tab_overview:
     k4.metric(text['admin_kpi_total_loans'],
                f"{format(stats['total_loans'] // 1_000_000, ',')}M VNĐ")
     k5.metric(text['admin_kpi_locked'],
-               f"{'🔴' if stats['locked_count'] > 0 else '🟢'} {stats['locked_count']}")
+            f"{'🔴' if stats['locked_count'] > 0 else '🟢'} {stats['locked_count']}")
     k6.metric(text['admin_kpi_overdue'],
-               f"{'🔴' if stats['overdue_count'] > 0 else '🟢'} {stats['overdue_count']}")
+            f"{'🔴' if stats['overdue_count'] > 0 else '🟢'} {stats['overdue_count']}")
 
     st.markdown('---')
 
@@ -187,7 +187,7 @@ with tab_users:
                     # Giả lập (all pl > 0, target phải có pl thấp hơn)
                     if target_pl < pl and not is_self:
                         if btn_cols[0].button(f"👤 {text['admin_action_impersonate']}",
-                                               key=f"imp_{target_id}"):
+                                            key=f"imp_{target_id}"):
                             st.session_state.real_acc_num = st.session_state.acc_num
                             st.session_state.real_acc_name = st.session_state.acc_name
                             st.session_state.real_power_level = pl
@@ -212,7 +212,7 @@ with tab_users:
                     if can_act:
                         expand_adj = f"_adj_{target_id}"
                         if st.button(f"💰 {text['admin_action_adjust_balance']}",
-                                     key=f"adj_btn_{target_id}"):
+                                    key=f"adj_btn_{target_id}"):
                             st.session_state[expand_adj] = not st.session_state.get(expand_adj, False)
                             st.rerun()
 
@@ -223,7 +223,7 @@ with tab_users:
                                     step=100000, format='%d', key=f"adj_val_{target_id}"
                                 )
                                 pass_adj = st.text_input("Mật khẩu xác nhận", type='password',
-                                                          max_chars=24, key=f"adj_pass_{target_id}")
+                                                        max_chars=24, key=f"adj_pass_{target_id}")
                                 ca, cb = st.columns(2)
                                 with ca:
                                     if st.form_submit_button(f"**:green[{text['common_confirm']} ✓]**"):
@@ -245,7 +245,7 @@ with tab_users:
                     if pl == 3 and not is_self and target_pl < 3:
                         expand_pl = f"_pl_{target_id}"
                         if st.button(f"⚡ {text['admin_action_change_power']}",
-                                     key=f"pl_btn_{target_id}"):
+                                    key=f"pl_btn_{target_id}"):
                             st.session_state[expand_pl] = not st.session_state.get(expand_pl, False)
                             st.rerun()
 
@@ -261,20 +261,20 @@ with tab_users:
                             pc1, pc2 = st.columns(2)
                             with pc1:
                                 if st.button(f"**:green[{text['common_confirm']} ✓]**",
-                                             key=f"pl_cfm_{target_id}"):
+                                            key=f"pl_cfm_{target_id}"):
                                     admin_change_power_level(target_id, new_pl_val)
                                     del st.session_state[expand_pl]
                                     st.rerun()
                             with pc2:
                                 if st.button(f"**:red[{text['common_cancel']}]**",
-                                             key=f"pl_cancel_{target_id}"):
+                                            key=f"pl_cancel_{target_id}"):
                                     del st.session_state[expand_pl]
                                     st.rerun()
 
                         # Delete
                         del_key = f"_del_{target_id}"
                         if st.button(f"🗑️ {text['admin_action_delete']}",
-                                     key=f"del_btn_{target_id}"):
+                                    key=f"del_btn_{target_id}"):
                             st.session_state[del_key] = True
                             st.rerun()
 
@@ -288,7 +288,7 @@ with tab_users:
                                     st.rerun()
                             with dc2:
                                 if st.button(f"**:green[{text['common_cancel']}]**",
-                                             key=f"del_cancel_{target_id}"):
+                                            key=f"del_cancel_{target_id}"):
                                     del st.session_state[del_key]
                                     st.rerun()
 
