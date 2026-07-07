@@ -1,5 +1,5 @@
 import streamlit as st
-from helpers import df, embed_chatbot, switch_page_check
+from helpers import df, embed_chatbot, switch_page_check, exit_impersonation_confirm_dialog
 from auth import restore_login_session, logout, session_expired
 from styles import apply_main_styles, apply_background_image
 from dictionary_data import DICTIONARY
@@ -58,10 +58,7 @@ if st.session_state.get('impersonating'):
     with imp_c2:
         if st.button(f"🚪 {st.session_state.text['admin_impersonate_exit']}",
                     key='exit_impersonate'):
-            st.session_state.acc_num = st.session_state.real_acc_num
-            st.session_state.acc_name = st.session_state.real_acc_name
-            st.session_state.power_level = st.session_state.real_power_level
-            st.session_state.impersonating = False
+            exit_impersonation_confirm_dialog()
             # Dọn các key tạm
             for k in ('real_acc_num', 'real_acc_name', 'real_power_level'):
                 if k in st.session_state:
@@ -133,6 +130,10 @@ if 'history_page' not in st.session_state:
     st.session_state.history_page = 1
 if 'impersonating' not in st.session_state:
     st.session_state.impersonating = False
+if 'transfer_save_beneficiary' not in st.session_state:
+    st.session_state.transfer_save_beneficiary = False
+if 'transfer_beneficiary_nickname' not in st.session_state:
+    st.session_state.transfer_beneficiary_nickname = ''
 
 # Áp ảnh nền (đã cache, không còn đọc lại file mỗi lần rerun)
 if not apply_background_image("Simple Bank App/wallpaper/reynoldbank.png"):

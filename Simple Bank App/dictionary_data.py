@@ -45,6 +45,8 @@ DICTIONARY = {
         'AI_chatbot_title': 'Trợ lý AI',
         'AI_chatbot_input_placeholder': 'Nhập câu hỏi tại đây...',
         'AI_chatbot_close_button': 'Đóng cửa sổ trò chuyện',
+        'AI_chatbot_clear_history': 'Xóa lịch sử trò chuyện',
+        'AI_chatbot_history_refreshed': 'Lịch sử trò chuyện đã được làm mới để tiết kiệm tài nguyên hệ thống',
 
         # --- HỘP THOẠI XÁC NHẬN RỜI TRANG ---
         'dialog_session_expired': 'Phiên đăng nhập hết hạn',
@@ -127,6 +129,25 @@ DICTIONARY = {
         'tf_err_content_empty': 'Nội dung không được bỏ trống',
         'tf_err_not_found': 'Không tìm thấy số tài khoản người nhận',
         'tf_err_insufficient': 'Không đủ tiền để chuyển',
+        'tf_lbl_save_beneficiary': 'Lưu số tài khoản này vào danh sách thụ hưởng',
+        'tf_btn_beneficiary_list': 'Danh sách thụ hưởng',
+        'tf_ben_lbl_nickname': 'Biệt danh (tùy chọn)',
+        'tf_ben_placeholder_nickname': 'Ví dụ: Mẹ, Tiền nhà, ...',
+        'tf_ben_add_new': 'Thêm thụ hưởng mới',
+        'tf_ben_btn_add': 'Thêm vào danh sách',
+        'tf_ben_err_already_exists': 'Tài khoản này đã có trong danh sách thụ hưởng của bạn',
+        'tf_ben_already_in_list': 'Đã có trong danh sách thụ hưởng',
+        'tf_ben_saved_list': 'Danh sách đã lưu',
+        'tf_ben_no_saved': 'Bạn chưa lưu tài khoản thụ hưởng nào',
+        'tf_ben_btn_use': 'Chọn',
+        'tf_ben_confirm_delete': 'Xóa tài khoản này khỏi danh sách thụ hưởng?',
+        'history_export_csv': 'Xuất file CSV lịch sử giao dịch',
+        'history_export_csv_hint': 'Tải về danh sách giao dịch đang hiển thị theo bộ lọc hiện tại (loại giao dịch, khoảng thời gian) ở định dạng CSV.',
+        'history_export_col_time': 'Thời gian',
+        'history_export_col_type': 'Loại giao dịch',
+        'history_export_col_amount': 'Số tiền (VNĐ)',
+        'history_export_col_desc': 'Mô tả',
+        'history_export_download_btn': '⬇️ Tải file CSV',
 
         # --- FORM XÁC NHẬN CHUYỂN TIỀN (TRANSFER REHEARSAL) ---
         'rh_amount': 'Số tiền chuyển khoản: **:green[{} VNĐ]**',
@@ -313,6 +334,9 @@ DICTIONARY = {
         'tx_loan_repay_early': '✅ Trả nợ trước hạn',
         'tx_loan_repay_matured': '✅ Trả nợ đáo hạn',
         'tx_loan_forced_paydown': '⚠️ Trả nợ bắt buộc',
+        'tx_savings_partial_withdraw': '💰 Rút tiết kiệm một phần',
+        'tx_loan_partial_repay': '✅ Trả nợ một phần',
+        'tx_loan_interest_penalty': '⚠️ Phạt trễ lãi vay',
         
         # --- TỔNG QUAN ---
         'summary_title': 'Tổng quan tài khoản',
@@ -357,7 +381,19 @@ DICTIONARY = {
         'admin_power_level_viewer': 'Viewer',
         'admin_power_level_moderator': 'Moderator',
         'admin_power_level_superadmin': 'Super Admin',
-        
+        'admin_legend_free_balance': 'Số dư tự do',
+        'admin_legend_savings': 'Tiết kiệm',
+        'admin_legend_loans': 'Dư nợ',
+        'admin_chart_balance_axis': 'Số dư (VNĐ)',
+        'admin_chart_count_axis': 'Số tài khoản',
+        'admin_chart_avg_savings_axis': 'TB tiết kiệm (VNĐ)',
+        'admin_no_balance_data': 'Chưa có dữ liệu số dư',
+        'admin_no_tx_data': 'Chưa có dữ liệu giao dịch',
+        'admin_impersonate_exit_confirm_title': 'Xác nhận thoát giả lập',
+        'admin_impersonate_exit_confirm_text': 'Bạn có muốn lưu lại những thay đổi đã thực hiện trong lúc giả lập tài khoản này không? Nếu chọn "Không lưu", số dư/sổ tiết kiệm/khoản vay của tài khoản này sẽ được khôi phục về đúng trạng thái trước khi giả lập.',
+        'admin_impersonate_exit_save': 'Lưu thay đổi',
+        'admin_impersonate_exit_discard': 'Không lưu (hoàn tác)',
+
         # --- SYSTEM PROMPT CHATBOT VI ---
         'system_prompt': '''        
             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
@@ -419,6 +455,8 @@ DICTIONARY = {
         'AI_chatbot_title': 'AI Assistant',
         'AI_chatbot_input_placeholder': 'Enter your question here...',
         'AI_chatbot_close_button': 'Close chat window',
+        'AI_chatbot_clear_history': 'Clear chat history',
+        'AI_chatbot_history_refreshed': 'Chat history has been refreshed to save system resources',
 
         # --- CONFIRM LEAVE PAGE DIALOG (EN) ---
         'dialog_session_expired' : 'Expired session',
@@ -500,7 +538,26 @@ DICTIONARY = {
         'tf_err_content_empty': 'Reference message cannot be empty',
         'tf_err_not_found': 'Recipient account number not found',
         'tf_err_insufficient': 'Insufficient funds to complete this transfer',
-
+        'tf_lbl_save_beneficiary': 'Save this account to my beneficiary list',
+        'tf_btn_beneficiary_list': 'Beneficiary List',
+        'tf_ben_lbl_nickname': 'Nickname (optional)',
+        'tf_ben_placeholder_nickname': 'e.g. Mom, Rent, ...',
+        'tf_ben_add_new': 'Add new beneficiary',
+        'tf_ben_btn_add': 'Add to list',
+        'tf_ben_err_already_exists': 'This account is already in your beneficiary list',
+        'tf_ben_already_in_list': 'Already in your beneficiary list',
+        'tf_ben_saved_list': 'Saved list',
+        'tf_ben_no_saved': 'You have not saved any beneficiaries yet',
+        'tf_ben_btn_use': 'Select',
+        'tf_ben_confirm_delete': 'Remove this account from your beneficiary list?',
+        'history_export_csv': 'Export transaction history as CSV',
+        'history_export_csv_hint': 'Download the currently filtered transactions (type, date range) as a CSV file.',
+        'history_export_col_time': 'Timestamp',
+        'history_export_col_type': 'Transaction Type',
+        'history_export_col_amount': 'Amount (VND)',
+        'history_export_col_desc': 'Description',
+        'history_export_download_btn': '⬇️ Download CSV',
+        
         # --- REHEARSAL FORM (EN) ---
         'rh_amount': 'Transfer Amount: **:green[{} VND]**',
         'rh_words': 'Amount in words: **:green[{}]**',
@@ -690,6 +747,9 @@ DICTIONARY = {
         'tx_loan_repay_early': '✅ Early Loan Repayment',
         'tx_loan_repay_matured': '✅ Loan Matured Repayment',
         'tx_loan_forced_paydown': '⚠️ Forced Loan Paydown',
+        'tx_savings_partial_withdraw': '💰 Partial Savings Withdrawal',
+        'tx_loan_partial_repay': '✅ Partial Loan Repayment',
+        'tx_loan_interest_penalty': '⚠️ Late Interest Penalty',
         
         # --- SUMMARY ---
         'summary_title': 'Account Summary',
@@ -734,6 +794,18 @@ DICTIONARY = {
         'admin_power_level_viewer': 'Viewer',
         'admin_power_level_moderator': 'Moderator',
         'admin_power_level_superadmin': 'Super Admin',
+        'admin_legend_free_balance': 'Free Balance',
+        'admin_legend_savings': 'Savings',
+        'admin_legend_loans': 'Loans',
+        'admin_chart_balance_axis': 'Balance (VND)',
+        'admin_chart_count_axis': 'Number of Accounts',
+        'admin_chart_avg_savings_axis': 'Avg. Savings (VND)',
+        'admin_no_balance_data': 'No balance data available',
+        'admin_no_tx_data': 'No transaction data available',
+        'admin_impersonate_exit_confirm_title': 'Confirm Exit Impersonation',
+        'admin_impersonate_exit_confirm_text': 'Do you want to save the changes made while impersonating this account? If you choose "Discard", this account\'s balance/savings/loans will be restored to their exact state before impersonation began.',
+        'admin_impersonate_exit_save': 'Save changes',
+        'admin_impersonate_exit_discard': 'Discard (undo)',
         
         # --- SYSTEM PROMPT CHATBOT EN ---
         'system_prompt': '''
