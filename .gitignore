@@ -1,14 +1,11 @@
 # Secure data:
 Simple Bank App/.streamlit/secrets.toml
 test/
+archived_data/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
-
-# context files
-dump_context.py
-project_context.txt
 
 # C extensions
 *.so

@@ -61,14 +61,47 @@ with tab_overview:
         st.markdown(f"**{text['admin_chart_balance_dist']}**")
         user_df, _ = admin_get_user_summary()
         non_zero = user_df[user_df['Balance'] > 0].copy()
+        
         if not non_zero.empty:
-            non_zero['Balance_Bin'] = pd.cut(non_zero['Balance'], bins=15)
+            # Tự định nghĩa 10 khoảng (cần 11 mốc) để bẻ gãy sự chênh lệch lớn giữa các tài khoản
+            # Tập trung chia nhỏ phân khúc từ 50M đến 10 tỷ, và gộp phân khúc siêu giàu > 10 tỷ
+            custom_bins = [
+                0, 200_000_000, 500_000_000, 1_000_000_000, 2_000_000_000, 
+                5_000_000_000, 10_000_000_000, 20_000_000_000, 40_000_000_000, 
+                70_000_000_000, float('inf')
+            ]
+            
+            # Cắt dữ liệu theo các mốc tùy chỉnh
+            non_zero['Balance_Bin'] = pd.cut(non_zero['Balance'], bins=custom_bins)
+            
             grouped = (non_zero.groupby('Balance_Bin', observed=True)
                         .agg(Count=('Balance', 'size'), Avg_Savings=('Total_Savings', 'mean'))
                         .reset_index())
-            grouped['Bin_Label'] = grouped['Balance_Bin'].apply(
-                lambda x: f"{format(int(x.left/1_000_000), ',')}M-{format(int(x.right/1_000_000), ',')}M"
-            )
+            
+            # Hàm định dạng nhãn cột hiển thị dễ đọc (ví dụ: 50M-200M, 1B-2B, >70B)
+            def make_bin_label(x):
+                left_val = x.left
+                right_val = x.right
+                
+                # Định dạng cận dưới
+                if left_val == 0 or pd.isna(left_val):
+                    left_str = "0"
+                elif left_val >= 1_000_000_000:
+                    left_str = f"{int(left_val/1_000_000_000)}B"
+                else:
+                    left_str = f"{int(left_val/1_000_000)}M"
+                    
+                # Định dạng cận trên
+                if right_val == float('inf') or pd.isna(right_val):
+                    return f">{left_str}"
+                elif right_val >= 1_000_000_000:
+                    right_str = f"{int(right_val/1_000_000_000)}B"
+                else:
+                    right_str = f"{int(right_val/1_000_000)}M"
+                    
+                return f"{left_str}-{right_str}"
+
+            grouped['Bin_Label'] = grouped['Balance_Bin'].apply(make_bin_label)
 
             fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
             fig_combo.add_trace(
@@ -92,7 +125,7 @@ with tab_overview:
             )
             fig_combo.update_yaxes(title_text=text['admin_chart_count_axis'], secondary_y=False)
             fig_combo.update_yaxes(title_text=text['admin_chart_avg_savings_axis'], secondary_y=True)
-            st.plotly_chart(fig_combo, width='stretch')
+            st.plotly_chart(fig_combo, use_container_width=True) # Đã sửa thành use_container_width chuẩn Streamlit
         else:
             st.info(text['admin_no_balance_data'])
 
@@ -126,7 +159,7 @@ with tab_overview:
         fig_line = px.line(
             timeline_df, x='Date', y='Count',
             color_discrete_sequence=['#9b5de5'],
-            labels={'Date': text['admin_chart_tx_timeline'], 'Count': text['admin_chart_tx_count']}
+            labels={'Date': text['admin_chart_tx_day'], 'Count': text['admin_chart_tx_count']}
         )
         fig_line.update_traces(
             line_color='#9b5de5', fill='tozeroy',
