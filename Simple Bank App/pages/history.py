@@ -59,6 +59,29 @@ filtered = filtered[
 ]
 
 total = len(filtered)
+
+with st.expander(f"📥 {text['history_export_csv']}"):
+    st.caption(text['history_export_csv_hint'])
+    if filtered.empty:
+        st.info(text['history_no_records'])
+    else:
+        export_df = filtered.copy().sort_values('Timestamp', ascending=False)
+        export_df['Type'] = export_df['Type'].apply(lambda t: text.get(f'tx_{t}', t))
+        export_df = export_df[['Timestamp', 'Type', 'Amount', 'Description']]
+        export_df.columns = [
+            text['history_export_col_time'], text['history_export_col_type'],
+            text['history_export_col_amount'], text['history_export_col_desc']
+        ]
+        # utf-8-sig thêm BOM để Excel trên Windows hiển thị đúng dấu tiếng Việt
+        csv_bytes = export_df.to_csv(index=False).encode('utf-8-sig')
+        st.download_button(
+            label=text['history_export_download_btn'],
+            data=csv_bytes,
+            file_name=f"transactions_{stk}_{from_date}_{to_date}.csv",
+            mime='text/csv',
+            key='btn_download_history_csv'
+        )
+
 if total == 0:
     st.info(text['history_no_records'])
     st.stop()

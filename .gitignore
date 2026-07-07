@@ -6,6 +6,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# context files
+dump_context.py
+project_context.txt
+
 # C extensions
 *.so
 

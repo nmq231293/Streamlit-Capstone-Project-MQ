@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from helpers import (
-    admin_get_system_stats, admin_get_user_summary,
+    admin_get_system_stats, admin_get_user_summary, admin_snapshot_account_state,
     admin_lock_account, admin_unlock_account,
     admin_adjust_balance, admin_change_power_level,
     admin_soft_delete_account, admin_get_recent_transactions,
@@ -37,54 +39,78 @@ tab_overview, tab_users, tab_tx = st.tabs([
 with tab_overview:
     stats = admin_get_system_stats()
 
-    # KPI row
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
+    # Hàng 1: 3 chỉ số đếm được để cùng 1 dòng
+    k1, k2, k3 = st.columns(3)
     k1.metric(text['admin_kpi_total_users'], stats['total_users'])
-    k2.metric(text['admin_kpi_total_balance'],
-               f"{format(stats['total_balance'] // 1_000_000, ',')}M VNĐ")
-    k3.metric(text['admin_kpi_total_savings'],
-               f"{format(stats['total_savings'] // 1_000_000, ',')}M VNĐ")
-    k4.metric(text['admin_kpi_total_loans'],
-               f"{format(stats['total_loans'] // 1_000_000, ',')}M VNĐ")
-    k5.metric(text['admin_kpi_locked'],
-               f"{'🔴' if stats['locked_count'] > 0 else '🟢'} {stats['locked_count']}")
-    k6.metric(text['admin_kpi_overdue'],
-               f"{'🔴' if stats['overdue_count'] > 0 else '🟢'} {stats['overdue_count']}")
+    k2.metric(text['admin_kpi_locked'],
+                f"{'🔴' if stats['locked_count'] > 0 else '🟢'} {stats['locked_count']}")
+    k3.metric(text['admin_kpi_overdue'],
+                f"{'🔴' if stats['overdue_count'] > 0 else '🟢'} {stats['overdue_count']}")
+
+    # 3 chỉ số tiền tệ - mỗi cái 1 dòng riêng, hiển thị ĐẦY ĐỦ số để không bị cắt chữ khi số lớn
+    st.metric(text['admin_kpi_total_balance'], f"{format(stats['total_balance'], ',')} VNĐ")
+    st.metric(text['admin_kpi_total_savings'], f"{format(stats['total_savings'], ',')} VNĐ")
+    st.metric(text['admin_kpi_total_loans'], f"{format(stats['total_loans'], ',')} VNĐ")
 
     st.markdown('---')
 
-    # Charts row 1: Balance distribution | Savings vs Loans pie
+    # Charts row 1: Phân bố số dư (cột + đường) | Tỉ trọng tiết kiệm/dư nợ/tự do
     c1, c2 = st.columns(2)
 
     with c1:
         st.markdown(f"**{text['admin_chart_balance_dist']}**")
         user_df, _ = admin_get_user_summary()
-        non_zero = user_df[user_df['Balance'] > 0]
+        non_zero = user_df[user_df['Balance'] > 0].copy()
         if not non_zero.empty:
-            fig_hist = px.histogram(
-                non_zero, x='Balance', nbins=15,
-                color_discrete_sequence=['#9b5de5'],
-                labels={'Balance': 'Số dư (VNĐ)', 'count': 'Số tài khoản'}
+            non_zero['Balance_Bin'] = pd.cut(non_zero['Balance'], bins=15)
+            grouped = (non_zero.groupby('Balance_Bin', observed=True)
+                        .agg(Count=('Balance', 'size'), Avg_Savings=('Total_Savings', 'mean'))
+                        .reset_index())
+            grouped['Bin_Label'] = grouped['Balance_Bin'].apply(
+                lambda x: f"{format(int(x.left/1_000_000), ',')}M-{format(int(x.right/1_000_000), ',')}M"
             )
-            fig_hist.update_layout(
+
+            fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_combo.add_trace(
+                go.Bar(x=grouped['Bin_Label'], y=grouped['Count'],
+                        name=text['admin_chart_count_axis'],
+                        marker_color='#9b5de5'),
+                secondary_y=False,
+            )
+            fig_combo.add_trace(
+                go.Scatter(x=grouped['Bin_Label'], y=grouped['Avg_Savings'],
+                            name=text['admin_chart_avg_savings_axis'],
+                            mode='lines+markers',
+                            line=dict(color='#00ff66', width=3)),
+                secondary_y=True,
+            )
+            fig_combo.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#e2e8f0', margin=dict(t=10, b=10, l=10, r=10)
+                font_color='#e2e8f0', margin=dict(t=10, b=10, l=10, r=10),
+                legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='right', x=1),
+                xaxis_title=text['admin_chart_balance_axis'],
             )
-            st.plotly_chart(fig_hist, width='stretch')
+            fig_combo.update_yaxes(title_text=text['admin_chart_count_axis'], secondary_y=False)
+            fig_combo.update_yaxes(title_text=text['admin_chart_avg_savings_axis'], secondary_y=True)
+            st.plotly_chart(fig_combo, width='stretch')
         else:
-            st.info("Chưa có dữ liệu số dư")
+            st.info(text['admin_no_balance_data'])
 
     with c2:
         st.markdown(f"**{text['admin_chart_savings_loans']}**")
-        pie_data = {
-            'Tiết kiệm': stats['total_savings'],
-            'Dư nợ': stats['total_loans'],
-            'Số dư tự do': max(0, stats['total_balance'] - stats['total_loans'] - stats['total_savings'])
-        }
+        free_balance = max(0, stats['total_balance'] - stats['total_loans'] - stats['total_savings'])
+        lbl_savings = text['admin_legend_savings']
+        lbl_loans = text['admin_legend_loans']
+        lbl_free = text['admin_legend_free_balance']
+        pie_data = {lbl_savings: stats['total_savings'],
+                    lbl_loans: stats['total_loans'],
+                    lbl_free: free_balance}
+        color_map = {lbl_savings: '#00ff66', lbl_loans: '#ff4757', lbl_free: '#9b5de5'}
         fig_pie = px.pie(
             values=list(pie_data.values()),
             names=list(pie_data.keys()),
-            color_discrete_sequence=['#00ff66', '#ff4757', '#9b5de5'],
+            color=list(pie_data.keys()),
+            color_discrete_map=color_map,
             hole=0.4
         )
         fig_pie.update_layout(
@@ -112,7 +138,7 @@ with tab_overview:
         )
         st.plotly_chart(fig_line, width='stretch')
     else:
-        st.info("Chưa có dữ liệu giao dịch")
+        st.info(text['admin_no_tx_data'])
 
     # Alerts section
     st.markdown('---')
@@ -187,10 +213,11 @@ with tab_users:
                     # Giả lập (all pl > 0, target phải có pl thấp hơn)
                     if target_pl < pl and not is_self:
                         if btn_cols[0].button(f"👤 {text['admin_action_impersonate']}",
-                                               key=f"imp_{target_id}"):
+                                                key=f"imp_{target_id}"):
                             st.session_state.real_acc_num = st.session_state.acc_num
                             st.session_state.real_acc_name = st.session_state.acc_name
                             st.session_state.real_power_level = pl
+                            st.session_state.impersonate_snapshot = admin_snapshot_account_state(target_id)
                             st.session_state.impersonating = True
                             st.session_state.acc_num = target_id
                             st.session_state.acc_name = row['Name']
@@ -212,7 +239,7 @@ with tab_users:
                     if can_act:
                         expand_adj = f"_adj_{target_id}"
                         if st.button(f"💰 {text['admin_action_adjust_balance']}",
-                                     key=f"adj_btn_{target_id}"):
+                                    key=f"adj_btn_{target_id}"):
                             st.session_state[expand_adj] = not st.session_state.get(expand_adj, False)
                             st.rerun()
 
@@ -223,7 +250,7 @@ with tab_users:
                                     step=100000, format='%d', key=f"adj_val_{target_id}"
                                 )
                                 pass_adj = st.text_input("Mật khẩu xác nhận", type='password',
-                                                          max_chars=24, key=f"adj_pass_{target_id}")
+                                                        max_chars=24, key=f"adj_pass_{target_id}")
                                 ca, cb = st.columns(2)
                                 with ca:
                                     if st.form_submit_button(f"**:green[{text['common_confirm']} ✓]**"):
@@ -245,7 +272,7 @@ with tab_users:
                     if pl == 3 and not is_self and target_pl < 3:
                         expand_pl = f"_pl_{target_id}"
                         if st.button(f"⚡ {text['admin_action_change_power']}",
-                                     key=f"pl_btn_{target_id}"):
+                                    key=f"pl_btn_{target_id}"):
                             st.session_state[expand_pl] = not st.session_state.get(expand_pl, False)
                             st.rerun()
 
@@ -261,20 +288,20 @@ with tab_users:
                             pc1, pc2 = st.columns(2)
                             with pc1:
                                 if st.button(f"**:green[{text['common_confirm']} ✓]**",
-                                             key=f"pl_cfm_{target_id}"):
+                                            key=f"pl_cfm_{target_id}"):
                                     admin_change_power_level(target_id, new_pl_val)
                                     del st.session_state[expand_pl]
                                     st.rerun()
                             with pc2:
                                 if st.button(f"**:red[{text['common_cancel']}]**",
-                                             key=f"pl_cancel_{target_id}"):
+                                            key=f"pl_cancel_{target_id}"):
                                     del st.session_state[expand_pl]
                                     st.rerun()
 
                         # Delete
                         del_key = f"_del_{target_id}"
                         if st.button(f"🗑️ {text['admin_action_delete']}",
-                                     key=f"del_btn_{target_id}"):
+                                    key=f"del_btn_{target_id}"):
                             st.session_state[del_key] = True
                             st.rerun()
 
@@ -288,7 +315,7 @@ with tab_users:
                                     st.rerun()
                             with dc2:
                                 if st.button(f"**:green[{text['common_cancel']}]**",
-                                             key=f"del_cancel_{target_id}"):
+                                            key=f"del_cancel_{target_id}"):
                                     del st.session_state[del_key]
                                     st.rerun()
 

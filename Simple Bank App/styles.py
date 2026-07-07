@@ -107,29 +107,6 @@ MAIN_CSS = """
     }
 
     /* ==============================================================================
-        ĐỊNH DẠNG NÚT BẤM AI CHATBOT TRỢ LÝ (TONE HỒNG NEON CHỦ ĐẠO)
-       ============================================================================== */    
-        /* 1. Trạng thái mặc định của nút Chatbot Trợ lý AI */
-    div.st-key-toggle_chat_btn button {
-        background: linear-gradient(135deg, #db2777 0%, #f43f5e 100%) !important; /* Hồng cánh sen đậm chuyển sang Hồng cam rực rỡ */
-        color: #ffffff !important;               
-        border-radius: 12px !important;          
-        border: 1px solid rgba(244, 63, 94, 0.25) !important; /* Viền hồng mờ */
-        font-weight: 600 !important;
-        letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 15px rgba(219, 39, 119, 0.4) !important; /* Đổ bóng phát sáng màu hồng neon */
-        transition: all 0.3s ease-in-out !important;
-    }
-    
-    /* 2. Hiệu ứng Hover rực rỡ khi di chuột vào nút Chatbot Trợ lý AI */
-    div.st-key-toggle_chat_btn button:hover {
-        background: linear-gradient(135deg, #be185d 0%, #e11d48 100%) !important; /* Tông hồng sẫm sâu sắc và quyến rũ hơn */
-        color: #ffffff !important;               
-        box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6) !important; /* Tăng cường độ phát sáng Cyber */
-        transform: translateY(-2px) !important;  /* Nút nảy nhẹ lên trên 2px */
-    }
-
-    /* ==============================================================================
         HỆ THỐNG ĐÓNG KHỐI ĐỒNG BỘ CHO TẤT CẢ LABEL WIDGETS (TONE TÍM NEON)
        ============================================================================== */
     
@@ -198,28 +175,30 @@ MAIN_CSS = """
         box-shadow: 0 0 12px rgba(168, 85, 247, 0.5) !important;
     }
 
-    /* ==============================================================================
-        ĐỊNH DẠNG NÚT CHỌN NGÔN NGỮ (MENU_BUTTON) - TONE MÀU HỒNG NEON CHỦ ĐẠO
-       ============================================================================== */
+    /* =====================================================================================================
+        ĐỊNH DẠNG NÚT CHỌN NGÔN NGỮ (MENU_BUTTON) VÀ NÚT BẤM AI CHATBOT TRỢ LÝ - TONE MÀU HỒNG NEON CHỦ ĐẠO
+       ===================================================================================================== */
     
     /* 1. Trạng thái mặc định của nút Chọn ngôn ngữ */
+    div.st-key-toggle_chat_btn button,
     div.st-key-lang_menu_btn button {
-        background: linear-gradient(135deg, #db2777 0%, #f43f5e 100%) !important; /* Hồng cánh sen đậm chuyển sang Hồng cam rực rỡ */
-        color: #ffffff !important;               
-        border-radius: 12px !important;          
-        border: 1px solid rgba(244, 63, 94, 0.25) !important; /* Viền hồng mờ */
+        background: linear-gradient(135deg, #db2777 0%, #f43f5e 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(244, 63, 94, 0.25) !important;
         font-weight: 600 !important;
         letter-spacing: 0.5px !important;
-        box-shadow: 0 4px 15px rgba(219, 39, 119, 0.4) !important; /* Đổ bóng phát sáng màu hồng neon */
+        box-shadow: 0 4px 15px rgba(219, 39, 119, 0.4) !important;
         transition: all 0.3s ease-in-out !important;
     }
     
     /* 2. Hiệu ứng Hover rực rỡ khi di chuột vào nút Chọn ngôn ngữ */
+    div.st-key-toggle_chat_btn button:hover,
     div.st-key-lang_menu_btn button:hover {
-        background: linear-gradient(135deg, #be185d 0%, #e11d48 100%) !important; /* Tông hồng sẫm sâu sắc và quyến rũ hơn */
-        color: #ffffff !important;               
-        box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6) !important; /* Tăng cường độ phát sáng Cyber */
-        transform: translateY(-2px) !important;  /* Nút nảy nhẹ lên trên 2px */
+        background: linear-gradient(135deg, #be185d 0%, #e11d48 100%) !important;
+        color: #ffffff !important;
+        box-shadow: 0 6px 20px rgba(225, 29, 72, 0.6) !important;
+        transform: translateY(-2px) !important;
     }
 
     /* 3. Hiệu ứng đặc biệt dành cho hộp danh sách lựa chọn ngôn ngữ xổ xuống (nếu có chung class) */
@@ -285,36 +264,24 @@ MAIN_CSS = """
 
     /* 3. HIỆU ỨNG HOVER RỰC RỠ: Tự động phân chia màu theo nội dung cụ thể */
     
-    /* A. Các phần tử thuộc Menu Ngôn ngữ (Sẽ lướt sáng màu Hồng Neon) */
-    ul[role="menu"] li:has(span:contains("Tiếng")),
-    ul[role="menu"] li:has(span:contains("English")),
-    div[role="listbox"] [role="option"]:contains("Tiếng"),
-    div[role="listbox"] [role="option"]:contains("English"),
-    ul[role="menu"] li:contains("Tiếng Việt"),
-    ul[role="menu"] li:contains("English") {
-        /* Thiết lập hover riêng cho ngôn ngữ */
+    /* A. Menu Ngôn ngữ - dùng lại pattern adjacency đã có sẵn (thay cho :contains không hợp lệ) */
+    div.st-key-lang_menu_btn + div ul[role="menu"] li:hover,
+    div.st-key-lang_menu_btn + div div[role="listbox"] [role="option"]:hover {
+        background: rgba(244, 63, 94, 0.15) !important;
+        color: #f43f5e !important;
+        padding-left: 20px !important;
+        box-shadow: inset 3px 0 0 0 #db2777 !important;
     }
-    ul[role="menu"] li:contains("Tiếng"):hover,
-    ul[role="menu"] li:contains("English"):hover,
-    div[role="listbox"] [role="option"]:hover:has(span:contains("Tiếng")),
-    [data-presentation="popover"] ul li:contains("Tiếng"):hover,
-    [data-presentation="popover"] ul li:contains("English"):hover {
-        background: rgba(244, 63, 94, 0.15) !important;      /* Nền hồng mỏng */
-        color: #f43f5e !important;                           /* Chữ đổi sang hồng rực */
-        padding-left: 20px !important;                       /* Trượt nhẹ sang phải */
-        box-shadow: inset 3px 0 0 0 #db2777 !important;      /* Vạch dọc màu hồng bên trái */
-    }
-    
-    /* B. Các phần tử thuộc Menu Cài đặt (Sẽ lướt sáng màu Xanh Lơ Đậm) */
+
+    /* B. Các menu khác (mặc định) */
     ul[role="menu"] li:hover,
     div[role="listbox"] [role="option"]:hover,
     [data-presentation="popover"] ul li:hover {
-        background: rgba(0, 206, 209, 0.15) !important;      /* Mặc định các menu khác là xanh lơ */
-        color: #00ffff !important;                           /* Chữ màu Cyan phát sáng giống lõi Ethereum */
-        padding-left: 20px !important;                       /* Trượt nhẹ sang phải */
-        box-shadow: inset 3px 0 0 0 #00ced1 !important;      /* Vạch dọc xanh lơ bên trái */
+        background: rgba(0, 206, 209, 0.15) !important;
+        color: #00ffff !important;
+        padding-left: 20px !important;
+        box-shadow: inset 3px 0 0 0 #00ced1 !important;
     }
-
 
     
     /* ==============================================================================
@@ -324,12 +291,12 @@ MAIN_CSS = """
     /* 1. Kích sáng màu ĐỎ (:red) thành Đỏ Neon rực rỡ và đổ bóng chữ */
     div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: rgb(255, 75, 75)"] p,
     div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: #ff4b4b"] p,
-    div[data-testid="stDialog"] p style[style*="color:red"] {
-        color: #ff3333 !important; /* Đổi sang tông đỏ lửa rực sáng */
-        font-weight: 800 !important;
-        font-size: 15px !important;
-        text-shadow: 0 0 8px rgba(255, 51, 51, 0.6) !important; /* Tạo hiệu ứng chữ phát sáng */
-    }
+    # div[data-testid="stDialog"] p style[style*="color:red"] {
+    #     color: #ff3333 !important; /* Đổi sang tông đỏ lửa rực sáng */
+    #     font-weight: 800 !important;
+    #     font-size: 15px !important;
+    #     text-shadow: 0 0 8px rgba(255, 51, 51, 0.6) !important; /* Tạo hiệu ứng chữ phát sáng */
+    # }
 
     /* 2. Kích sáng màu XANH LÁ (:green) thành Xanh Mint phát sáng cực mạnh */
     div[data-testid="stDialog"] div[data-testid="stMarkdownContainer"] span[style*="color: rgb(9, 171, 59)"] p,
@@ -358,7 +325,69 @@ MAIN_CSS = """
         background-color: rgba(15, 10, 30, 0.65) !important;
         backdrop-filter: blur(8px);
         border-radius: 12px;
-    }    
+    }
+    
+    /* ==============================================================================
+        NHÃN TAB (st.tabs) - TO HƠN VÀ ĐỔI MÀU KHI ĐANG CHỌN (TONE CAM NEON)
+    ============================================================================== */
+    button[data-baseweb="tab"] p {
+        font-size: 17px !important;
+        font-weight: 700 !important;
+        color: #cbd5e1 !important;
+        letter-spacing: 0.5px !important;
+        transition: color 0.25s ease-in-out !important;
+    }
+    button[data-baseweb="tab"][aria-selected="true"] p {
+        color: #ff9f43 !important;
+        text-shadow: 0 0 10px rgba(255, 159, 67, 0.5) !important;
+    }
+    button[data-baseweb="tab"]:hover p {
+        color: #ffb85c !important;
+    }
+    
+    /* Nút Download (tính năng xuất CSV) - đồng bộ tông tím với nút thường */
+    div[data-testid="stDownloadButton"] button {
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%) !important;
+        color: #ffffff !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.5px !important;
+        box-shadow: 0 4px 15px rgba(147, 51, 234, 0.3) !important;
+        transition: all 0.3s ease-in-out !important;
+    }
+    div[data-testid="stDownloadButton"] button:hover {
+        background: linear-gradient(135deg, #4f46e5 0%, #9333ea 100%) !important;
+        color: #ffffff !important;
+        box-shadow: 0 6px 20px rgba(147, 51, 234, 0.5) !important;
+        transform: translateY(-2px) !important;
+    }
+
+    /* Expander (dùng cho khu vực xuất CSV) - khung kính mờ đồng bộ theme */
+    div[data-testid="stExpander"] summary {
+        background: rgba(255, 255, 255, 0.04) !important;
+        border: 1px solid rgba(168, 85, 247, 0.25) !important;
+        border-radius: 10px !important;
+        color: #e2e8f0 !important;
+    }
+    div[data-testid="stExpander"] summary:hover {
+        border-color: rgba(168, 85, 247, 0.5) !important;
+        background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    /* Chatbot - tiêu đề hộp chat */
+    .chat-title-text {
+        color: #e2e8f0 !important;
+        font-weight: bold !important;
+        margin-bottom: 8px !important;
+        font-size: 14px !important;
+        letter-spacing: 0.5px;
+    }
+    .floating-btn-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 5px;
+    }
     </style>
 """
 

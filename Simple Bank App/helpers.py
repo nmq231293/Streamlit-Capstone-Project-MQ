@@ -30,30 +30,42 @@ def today_vn():
 # =======================================================
 # CHƯƠNG TRÌNH CHATBOT TRỢ LÝ ẢO
 # =======================================================
+# --- Thông số giới hạn token cho chatbot AI ---
+CHAT_HISTORY_TIMEOUT_SECONDS = 300   # 5 phút không chat -> tự làm mới lịch sử
+CHAT_MAX_MESSAGES            = 20    # Quá 20 tin nhắn (user+assistant) -> coi là "quá dài", tự làm mới
+CHAT_API_CONTEXT_WINDOW      = 8     # CHỈ gửi 8 tin nhắn GẦN NHẤT lên API mỗi lần (bất kể lịch sử dài bao nhiêu)
+CHAT_MAX_RESPONSE_TOKENS     = 400   # Giới hạn độ dài phản hồi trả về - tiết kiệm token đầu ra
+
 def embed_chatbot():
     text = st.session_state.text
-    
-    # 1. Cập nhật System Prompt cho OpenAI (Giữ nguyên logic hôm qua)
-    SYSTEM_PROMPT = text['system_prompt']
-    system_instruction = {"role": "system", "content": SYSTEM_PROMPT}
+    now_ts = time.time()
 
-    if "messages" not in st.session_state:
-        st.session_state.messages = [system_instruction]
-    else:
-        if len(st.session_state.messages) > 0 and st.session_state.messages[0]["role"] == "system":
-            st.session_state.messages[0]["content"] = SYSTEM_PROMPT
-    
+    # --- Lịch sử chat (KHÔNG lưu system prompt trong này - system luôn được ghép riêng lúc gọi
+    #     API để tránh phải đồng bộ lại mỗi khi người dùng đổi ngôn ngữ giữa chừng) ---
+    if "chat_messages" not in st.session_state:
+        st.session_state.chat_messages = []
+    if "chat_last_activity" not in st.session_state:
+        st.session_state.chat_last_activity = now_ts
+
+    # --- Tự động làm mới lịch sử nếu: quá 5 phút không chat, HOẶC lịch sử quá dài ---
+    timed_out = (now_ts - st.session_state.chat_last_activity) > CHAT_HISTORY_TIMEOUT_SECONDS
+    too_long  = len(st.session_state.chat_messages) >= CHAT_MAX_MESSAGES
+    if st.session_state.chat_messages and (timed_out or too_long):
+        st.session_state.chat_messages = []
+        st.session_state['_chat_refreshed_notice'] = True
+
     if "chat_open" not in st.session_state:
         st.session_state.chat_open = False
 
-    # 2. Định nghĩa hàm Callback xử lý việc Đóng/Mở chat nhanh gọn
     def toggle_chat():
         st.session_state.chat_open = not st.session_state.chat_open
 
-    # 3. Tạo nút bấm trước để lấy label động dựa trên trạng thái
+    def clear_chat_history():
+        st.session_state.chat_messages = []
+        st.session_state.chat_last_activity = time.time()
+
     button_label = f"❌ {text['AI_chatbot_close_button']}" if st.session_state.chat_open else f"💬 {text['AI_chatbot_title']}"
 
-    # 4. Tính toán thông số CSS dựa trên trạng thái đã được chuẩn hóa
     is_open = st.session_state.chat_open
     bg_color = "rgba(30, 20, 60, 0.95)" if is_open else "transparent"
     box_shadow = "0px 8px 32px rgba(0, 0, 0, 0.5)" if is_open else "none"
@@ -61,7 +73,6 @@ def embed_chatbot():
     padding_style = "10px" if is_open else "0px"
     width_style = "360px" if is_open else "auto"
 
-    # 5. Bơm CSS cố định vị trí (Fix lỗi giật lag giao diện)
     st.markdown(
         f"""
         <style>
@@ -79,53 +90,61 @@ def embed_chatbot():
             backdrop-filter: blur(8px);
             transition: all 0.2s ease-in-out;
         }}
-        .chat-title-text {{
-            color: #e2e8f0 !important;
-            font-weight: bold !important;
-            margin-bottom: 8px !important;
-            font-size: 14px !important;
-            letter-spacing: 0.5px;
-        }}
-        .floating-btn-container {{
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 5px;
-        }}
         </style>
         """,
         unsafe_allow_html=True
     )
 
-    # 6. Render giao diện khung chat
     chat_wrapper = st.container()
     with chat_wrapper:
         st.markdown('<div class="custom-floating-chat"></div>', unsafe_allow_html=True)
-        
+
         if st.session_state.chat_open:
-            st.markdown(f'**:red[🤖 {text["AI_chatbot_title"]}]**')
+            title_col, clear_col = st.columns([4, 1])
+            with title_col:
+                st.markdown(f'**:red[🤖 {text["AI_chatbot_title"]}]**')
+            with clear_col:
+                if st.button('🗑️', key='btn_clear_chat_history', help=text['AI_chatbot_clear_history']):
+                    clear_chat_history()
+                    st.rerun()
+
+            if st.session_state.pop('_chat_refreshed_notice', False):
+                st.caption(f"🔄 {text['AI_chatbot_history_refreshed']}")
+
             chat_history_box = st.container(height=300)
-            
+
             with chat_history_box:
-                for message in st.session_state.messages:
-                    if message["role"] != "system":
-                        with st.chat_message(message["role"]):
-                            st.write(message["content"])
+                for message in st.session_state.chat_messages:
+                    with st.chat_message(message["role"]):
+                        st.write(message["content"])
 
             if user_query := st.chat_input(f"{text['AI_chatbot_input_placeholder']}", key="chat_input_unique"):
+                st.session_state.chat_last_activity = time.time()
+                user_msg = user_query.capitalize()
                 with chat_history_box:
                     with st.chat_message("user"):
-                        st.write(f':green[{user_query.capitalize()}]')
-                st.session_state.messages.append({"role": "user", "content": f'{user_query.capitalize()}'})
+                        st.write(f':green[{user_msg}]')
+                st.session_state.chat_messages.append({"role": "user", "content": user_msg})
+
+                # --- CHỈ gửi lên API: system prompt + N tin nhắn GẦN NHẤT (sliding window).
+                #     Lịch sử ĐẦY ĐỦ vẫn được lưu và hiển thị nguyên vẹn trong chat_messages -
+                #     chỉ có payload gửi API là bị giới hạn, nên chi phí token/lần gọi luôn cố
+                #     định bất kể cuộc trò chuyện đã dài bao nhiêu. ---
+                api_messages = (
+                    [{"role": "system", "content": text['system_prompt']}] +
+                    st.session_state.chat_messages[-CHAT_API_CONTEXT_WINDOW:]
+                )
 
                 client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
                 with chat_history_box:
                     with st.chat_message("assistant"):
                         message_placeholder = st.empty()
                         full_response = ""
-                        
+
                         response = client.chat.completions.create(
                             model="gpt-4o-mini",
-                            messages=st.session_state.messages,
+                            messages=api_messages,
+                            max_tokens=CHAT_MAX_RESPONSE_TOKENS,
                             stream=True,
                         )
                         for chunk in response:
@@ -134,15 +153,13 @@ def embed_chatbot():
                                 if delta_content:
                                     full_response += delta_content
                                     message_placeholder.write(full_response + "▌")
-                        
-                        message_placeholder.write(full_response)
-                
-                st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-        # 7. Render nút bấm ở cuối container nhưng đã được xử lý callback từ trước
+                        message_placeholder.write(full_response)
+
+                st.session_state.chat_messages.append({"role": "assistant", "content": full_response})
+                st.session_state.chat_last_activity = time.time()
+
         st.markdown('<div class="floating-btn-container">', unsafe_allow_html=True)
-        
-        # 8. Sử dụng on_click giúp trạng thái thay đổi ngay trước khi file rerun, không cần gọi st.rerun() thủ công
         st.button(button_label, key="toggle_chat_btn", type="primary", on_click=toggle_chat)
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -320,6 +337,11 @@ def work_sheet_update(worksheet, df = df_init()):
 # --- Lỗi khi tạo tài khoản thất bại vì số tài khoản vừa bị người khác đăng ký trước trong tích tắc ---
 class AccountIdTakenError(Exception):
     """Báo hiệu việc tạo tài khoản thất bại vì số tài khoản vừa bị người khác đăng ký trước trong tích tắc."""
+    pass
+
+# --- Lỗi khi thêm thụ hưởng thất bại vì tài khoản này đã có trong danh sách ---
+class BeneficiaryExistsError(Exception):
+    """Báo hiệu việc thêm thụ hưởng thất bại vì tài khoản này đã có trong danh sách."""
     pass
 
 # --- Hàm tạo tài khoản mới ---
@@ -1773,6 +1795,174 @@ def log_transaction(acc_id, tx_type, amount, reference_id='', description=''):
     except Exception:
         pass
 
+
+# =======================================================
+# DANH SÁCH THỤ HƯỞNG (BENEFICIARIES)
+# =======================================================
+BENEFICIARY_COLUMNS = ['Beneficiary_ID', 'Owner_Account_ID', 'Beneficiary_Account_ID',
+                        'Nickname', 'Status', 'Version']
+BENEFICIARY_DTYPES = {
+    'Owner_Account_ID': 'str', 'Beneficiary_Account_ID': 'str',
+    'Nickname': 'str', 'Status': 'str', 'Version': 'int64'
+}
+
+# --- Hàm khởi tạo sheet beneficiaries ---
+def beneficiaries_init():
+    return generic_sheet_init('beneficiaries', 'Beneficiary_ID', BENEFICIARY_DTYPES, BENEFICIARY_COLUMNS)
+
+# --- Hàm lấy danh sách thụ hưởng của 1 tài khoản ---
+def get_beneficiaries(owner_stk):
+    """Danh sách thụ hưởng ĐANG active - đọc TRỰC TIẾP (fresh), dùng cho dialog quản lý
+    (thêm/sửa/xóa) nơi cần dữ liệu mới nhất, tránh xung đột optimistic locking."""
+    _, ben_df = beneficiaries_init()
+    if ben_df.empty:
+        return ben_df
+    mine = ben_df[(ben_df['Owner_Account_ID'] == owner_stk) & (ben_df['Status'] == 'active')]
+    return mine.sort_values('Nickname')
+
+# --- Hàm lấy snapshot danh sách thụ hưởng (cache 5s) ---
+@st.cache_data(ttl=5)
+def get_beneficiaries_snapshot(owner_stk):
+    """Snapshot nhanh (trễ tối đa 5s) - CHỈ dùng cho hiển thị nhẹ (vd: ẩn/hiện checkbox
+    'đã lưu chưa' trong form chuyển khoản), tránh gọi API mỗi lần rerun trang."""
+    return get_beneficiaries(owner_stk)
+
+# --- Hàm kiểm tra xem 1 tài khoản thụ hưởng đã được lưu chưa ---
+def is_beneficiary_saved(owner_stk, beneficiary_stk, use_snapshot=True):
+    mine = get_beneficiaries_snapshot(owner_stk) if use_snapshot else get_beneficiaries(owner_stk)
+    if mine.empty:
+        return False
+    return beneficiary_stk in list(mine['Beneficiary_Account_ID'])
+
+# --- Hàm thêm 1 tài khoản thụ hưởng ---
+def add_beneficiary(owner_stk, beneficiary_stk, nickname=''):
+    """Thêm 1 tài khoản thụ hưởng. Raise BeneficiaryExistsError nếu đã có trong danh sách."""
+    if is_beneficiary_saved(owner_stk, beneficiary_stk, use_snapshot=False):
+        raise BeneficiaryExistsError(beneficiary_stk)
+    ben_id = secrets.token_hex(8)
+    worksheet = get_or_create_worksheet('beneficiaries', tuple(BENEFICIARY_COLUMNS))
+    with_quota_retry(lambda: worksheet.append_row(
+        [ben_id, owner_stk, beneficiary_stk, nickname, 'active', 0]
+    ))
+    return ben_id
+
+# --- Hàm cập nhật nickname của 1 tài khoản thụ hưởng ---
+def update_beneficiary_nickname(beneficiary_id, new_nickname):
+    def apply(current_df):
+        current_df.loc[beneficiary_id, 'Nickname'] = new_nickname
+    update_rows_safely(beneficiaries_init, BENEFICIARY_COLUMNS, 'Beneficiary_ID', [beneficiary_id], apply)
+
+# --- Hàm xóa 1 tài khoản thụ hưởng (soft-delete) ---
+def delete_beneficiary(beneficiary_id):
+    """Soft-delete để giữ nguyên _sheet_row của các dòng khác trong sheet."""
+    def apply(current_df):
+        current_df.loc[beneficiary_id, 'Status'] = 'deleted'
+    update_rows_safely(beneficiaries_init, BENEFICIARY_COLUMNS, 'Beneficiary_ID', [beneficiary_id], apply)
+
+
+# --- Dialog quản lý danh sách thụ hưởng ---
+@st.dialog('**:violet[📇 Danh Sách Thụ Hưởng / Beneficiary List]**', width='large')
+def beneficiary_list_dialog():
+    text = st.session_state.text
+    stk = st.session_state.acc_num
+
+    st.markdown(f"**:violet[{text['tf_ben_add_new']}]**")
+    with st.form('form_add_beneficiary', clear_on_submit=True):
+        new_stk = st.text_input(text['tf_lbl_receiver'], max_chars=8,
+                                placeholder=text['tf_placeholder_receiver'])
+        new_nickname = st.text_input(text['tf_ben_lbl_nickname'], max_chars=30,
+                                    placeholder=text['tf_ben_placeholder_nickname'])
+        if st.form_submit_button(text['tf_ben_btn_add']):
+            snapshot_df = get_display_snapshot()
+            if new_stk == '':
+                st.error(text['tf_err_acc_empty'])
+            elif new_stk == stk:
+                st.error(text['tf_err_self_transfer'])
+            elif new_stk not in snapshot_df.index:
+                st.error(text['tf_err_not_found'])
+            else:
+                try:
+                    add_beneficiary(stk, new_stk, new_nickname)
+                    st.rerun()
+                except BeneficiaryExistsError:
+                    st.error(text['tf_ben_err_already_exists'])
+                except (APIError, OptimisticLockError):
+                    st.error(text['sys_err_quota'])
+
+    st.markdown('---')
+    st.markdown(f"**:violet[{text['tf_ben_saved_list']}]**")
+
+    ben_df = get_beneficiaries(stk)
+    if ben_df.empty:
+        st.info(text['tf_ben_no_saved'])
+    else:
+        snapshot_df = get_display_snapshot()
+        for ben_id, row in ben_df.iterrows():
+            ben_stk = row['Beneficiary_Account_ID']
+            nickname = row['Nickname']
+            acc_name = snapshot_df.loc[ben_stk, 'Name'] if ben_stk in snapshot_df.index else '???'
+            edit_key = f"_edit_ben_{ben_id}"
+            del_key = f"_del_ben_{ben_id}"
+
+            with st.container(border=True):
+                st.markdown('<div class="finance-card-marker"></div>', unsafe_allow_html=True)
+                bc1, bc2, bc3 = st.columns([3, 1, 1])
+                with bc1:
+                    if nickname:
+                        st.write(f"**{nickname}**")
+                        st.caption(f"{acc_name} · `{ben_stk}`")
+                    else:
+                        st.write(f"**{acc_name}**")
+                        st.caption(f"`{ben_stk}`")
+                with bc2:
+                    if st.button(text['tf_ben_btn_use'], key=f"use_ben_{ben_id}"):
+                        st.session_state.receiver_num = ben_stk
+                        st.rerun()
+                with bc3:
+                    ec1, ec2 = st.columns(2)
+                    with ec1:
+                        if st.button('✏️', key=f"edit_btn_{ben_id}"):
+                            st.session_state[edit_key] = not st.session_state.get(edit_key, False)
+                            st.rerun()
+                    with ec2:
+                        if st.button('🗑️', key=f"del_btn_{ben_id}"):
+                            st.session_state[del_key] = True
+                            st.rerun()
+
+                if st.session_state.get(edit_key):
+                    with st.form(f"form_edit_ben_{ben_id}"):
+                        edited_nickname = st.text_input(text['tf_ben_lbl_nickname'],
+                                                        value=nickname, max_chars=30)
+                        efc1, efc2 = st.columns(2)
+                        with efc1:
+                            if st.form_submit_button(f"**:green[{text['common_confirm']}]**"):
+                                try:
+                                    update_beneficiary_nickname(ben_id, edited_nickname)
+                                except (APIError, OptimisticLockError):
+                                    st.error(text['sys_err_quota'])
+                                del st.session_state[edit_key]
+                                st.rerun()
+                        with efc2:
+                            if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
+                                del st.session_state[edit_key]
+                                st.rerun()
+
+                if st.session_state.get(del_key):
+                    st.warning(text['tf_ben_confirm_delete'])
+                    dc1, dc2 = st.columns(2)
+                    with dc1:
+                        if st.button(f"**:red[{text['common_confirm']}]**", key=f"del_cfm_ben_{ben_id}"):
+                            try:
+                                delete_beneficiary(ben_id)
+                            except (APIError, OptimisticLockError):
+                                st.error(text['sys_err_quota'])
+                            del st.session_state[del_key]
+                            st.rerun()
+                    with dc2:
+                        if st.button(f"**:green[{text['common_cancel']}]**", key=f"del_cancel_ben_{ben_id}"):
+                            del st.session_state[del_key]
+                            st.rerun()
+
 # =======================================================
 # CÁC HÀM XỬ LÝ DỮ LIỆU NHẬP FORM
 # =======================================================
@@ -2206,6 +2396,21 @@ def money_transfer_form():
     else:
         st.write(f":red[{text['tf_limit_hint']}]")
     noi_dung = st.text_input(text['tf_lbl_content'], max_chars=99, placeholder=text['tf_placeholder_content'])
+
+    # --- Checkbox lưu thụ hưởng: chỉ hiện nếu số TK hợp lệ, không phải chính mình, và CHƯA lưu ---
+    save_ben = False
+    ben_nickname = ''
+    valid_recipient = stk != '' and stk in snapshot_df.index and stk != st.session_state.acc_num
+    already_saved = valid_recipient and is_beneficiary_saved(st.session_state.acc_num, stk)
+
+    if valid_recipient and not already_saved:
+        save_ben = st.checkbox(text['tf_lbl_save_beneficiary'], value=False, key='transfer_save_beneficiary_cb')
+        if save_ben:
+            ben_nickname = st.text_input(text['tf_ben_lbl_nickname'], max_chars=30,
+                                        placeholder=text['tf_ben_placeholder_nickname'],
+                                        key='transfer_save_beneficiary_nickname')
+    elif already_saved:
+        st.caption(f"✅ {text['tf_ben_already_in_list']}")
     
     if st.button(text['tf_btn_submit']):
         if stk == '':
@@ -2224,6 +2429,8 @@ def money_transfer_form():
             st.session_state.transfer_amount = tien_ck
             st.session_state.transfer_state = 1
             st.session_state.transfer_content = noi_dung
+            st.session_state.transfer_save_beneficiary = save_ben
+            st.session_state.transfer_beneficiary_nickname = ben_nickname
             st.switch_page('pages/transfer_rehearsal.py')
 
 # --- Hàm chính chuyển số tiền thành chữ (Tự động nhận diện Tiếng Việt / Tiếng Anh) ---
@@ -2369,8 +2576,22 @@ def transfer_rehearsal():
                     case 2:
                         try:
                             money_transfer(st.session_state.acc_num, st.session_state.receiver_num, st.session_state.transfer_amount)
+                            if st.session_state.get('transfer_save_beneficiary'):
+                                try:
+                                    if not is_beneficiary_saved(st.session_state.acc_num,
+                                                                st.session_state.receiver_num,
+                                                                use_snapshot=False):
+                                        add_beneficiary(
+                                            st.session_state.acc_num,
+                                            st.session_state.receiver_num,
+                                            st.session_state.get('transfer_beneficiary_nickname', '')
+                                        )
+                                except Exception:
+                                    pass  # Không để lỗi lưu thụ hưởng ảnh hưởng giao dịch chính đã thành công
                             st.session_state.receiver_num = ''
                             st.session_state.transfer_amount = 0
+                            st.session_state.transfer_save_beneficiary = False
+                            st.session_state.transfer_beneficiary_nickname = ''
                             st.session_state.wrong_password_count = 0
                             st.session_state.transfer_state = 2
                             st.switch_page('pages/transfer_success.py')
@@ -2495,7 +2716,7 @@ def account_info(stk):
 # ==============================================================================
 POWER_LEVEL_LABELS = {0: 'User', 1: 'Viewer', 2: 'Moderator', 3: 'Super Admin'}
 
-
+# --- Hàm tổng hợp chỉ số toàn hệ thống cho admin dashboard ---
 def admin_get_system_stats():
     """Tổng hợp chỉ số toàn hệ thống cho admin dashboard."""
     _, acc_df = df_init()
@@ -2524,7 +2745,7 @@ def admin_get_system_stats():
         'overdue_count': overdue_count,
     }
 
-
+# --- Hàm tổng hợp thông tin người dùng cho admin ---
 def admin_get_user_summary():
     """Trả về DataFrame tổng hợp thông tin người dùng kèm tiết kiệm/vay."""
     _, acc_df = df_init()
@@ -2562,18 +2783,17 @@ def admin_get_user_summary():
     result = result.drop(columns=['Password', 'Session', 'Previous_Session', '_sheet_row'], errors='ignore')
     return result, overdue_ids
 
+# --- Các hàm admin thao tác trực tiếp trên tài khoản ---
 
 def admin_lock_account(stk):
     def apply(current_df):
         current_df.loc[stk, 'Is_Locked'] = 'TRUE'
     update_accounts_safely([stk], apply)
 
-
 def admin_unlock_account(stk):
     def apply(current_df):
         current_df.loc[stk, 'Is_Locked'] = 'FALSE'
     update_accounts_safely([stk], apply)
-
 
 def admin_adjust_balance(stk, amount):
     """amount: dương = cộng, âm = trừ. Raise ValueError nếu số dư xuống âm."""
@@ -2584,12 +2804,10 @@ def admin_adjust_balance(stk, amount):
         current_df.loc[stk, 'Balance'] = new_bal
     update_accounts_safely([stk], apply)
 
-
 def admin_change_power_level(stk, new_level):
     def apply(current_df):
         current_df.loc[stk, 'Power_Level'] = new_level
     update_accounts_safely([stk], apply)
-
 
 def admin_soft_delete_account(stk):
     """Soft delete: ẩn danh hóa thông tin, đóng tất cả sổ/khoản vay, khóa tài khoản.
@@ -2628,6 +2846,7 @@ def admin_soft_delete_account(stk):
         current_df.loc[stk, 'Is_Locked'] = 'TRUE'
     update_accounts_safely([stk], anonymize)
 
+# --- Các hàm admin thống kê giao dịch ---
 
 def admin_get_recent_transactions(n=30):
     """Lấy n giao dịch gần nhất của toàn hệ thống."""
@@ -2637,7 +2856,6 @@ def admin_get_recent_transactions(n=30):
     tx_df['Timestamp'] = pd.to_datetime(tx_df['Timestamp'])
     return tx_df.sort_values('Timestamp', ascending=False).head(n)
 
-
 def admin_get_tx_timeline():
     """Group giao dịch theo ngày để vẽ line chart."""
     _, tx_df = transactions_init()
@@ -2646,3 +2864,123 @@ def admin_get_tx_timeline():
     tx_df['Timestamp'] = pd.to_datetime(tx_df['Timestamp'])
     tx_df['Date'] = tx_df['Timestamp'].dt.date
     return tx_df.groupby('Date').size().reset_index(name='Count')
+
+# =======================================================
+# GIẢ LẬP TÀI KHOẢN - CHỤP NHANH & KHÔI PHỤC TRẠNG THÁI
+# =======================================================
+_IMPERSONATE_ACC_RESTORE_COLS = [c for c in SHEET_COLUMNS if c not in ('ID', 'Version')]
+_IMPERSONATE_SAV_RESTORE_COLS = [c for c in SAVINGS_COLUMNS if c not in ('Deposit_ID', 'Version')]
+_IMPERSONATE_LOAN_RESTORE_COLS = [c for c in LOAN_COLUMNS if c not in ('Loan_ID', 'Version')]
+
+# --- Hàm chụp nhanh trạng thái tài khoản trước khi admin bắt đầu giả lập ---
+def admin_snapshot_account_state(stk):
+    """Chụp nhanh trạng thái đầy đủ của 1 tài khoản (dòng chính + sổ tiết kiệm + khoản vay)
+    TRƯỚC khi admin bắt đầu giả lập - dùng để hoàn tác nếu admin chọn không lưu thay đổi."""
+    _, acc_df = df_init()
+    _, sav_df = savings_init()
+    _, loan_df = loans_init()
+
+    return {
+        'account': acc_df.loc[stk].to_dict(),
+        'savings': {did: row.to_dict()
+                    for did, row in sav_df[sav_df['Account_ID'] == stk].iterrows()},
+        'loans': {lid: row.to_dict()
+                for lid, row in loan_df[loan_df['Account_ID'] == stk].iterrows()},
+    }
+
+# --- Hàm khôi phục trạng thái tài khoản từ snapshot ---
+def admin_restore_account_state(stk, snapshot):
+    """Khôi phục 1 tài khoản về ĐÚNG trạng thái đã chụp trước đó - dùng khi admin thoát giả
+    lập và chọn KHÔNG lưu thay đổi. Sổ tiết kiệm/khoản vay được TẠO MỚI trong lúc giả lập sẽ
+    bị vô hiệu hóa (Status='void', giữ nguyên _sheet_row) thay vì xóa dòng thật."""
+    acc_snap = snapshot['account']
+    def restore_acc(current_df):
+        for col in _IMPERSONATE_ACC_RESTORE_COLS:
+            current_df.loc[stk, col] = acc_snap[col]
+    try:
+        update_accounts_safely([stk], restore_acc)
+    except OptimisticLockError:
+        pass
+
+    _, sav_df = savings_init()
+    current_sav_ids = set(sav_df[sav_df['Account_ID'] == stk].index)
+    snap_sav = snapshot['savings']
+
+    for did in current_sav_ids & snap_sav.keys():
+        snap_row = snap_sav[did]
+        def restore_s(current_df, d=did, s=snap_row):
+            for col in _IMPERSONATE_SAV_RESTORE_COLS:
+                current_df.loc[d, col] = s[col]
+        try:
+            update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [did], restore_s)
+        except OptimisticLockError:
+            pass
+
+    for did in current_sav_ids - snap_sav.keys():
+        def void_s(current_df, d=did):
+            current_df.loc[d, 'Status'] = 'void'
+        try:
+            update_rows_safely(savings_init, SAVINGS_COLUMNS, 'Deposit_ID', [did], void_s)
+        except OptimisticLockError:
+            pass
+
+    _, loan_df = loans_init()
+    current_loan_ids = set(loan_df[loan_df['Account_ID'] == stk].index)
+    snap_loan = snapshot['loans']
+
+    for lid in current_loan_ids & snap_loan.keys():
+        snap_row = snap_loan[lid]
+        def restore_l(current_df, l=lid, s=snap_row):
+            for col in _IMPERSONATE_LOAN_RESTORE_COLS:
+                current_df.loc[l, col] = s[col]
+        try:
+            update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], restore_l)
+        except OptimisticLockError:
+            pass
+
+    for lid in current_loan_ids - snap_loan.keys():
+        def void_l(current_df, l=lid):
+            current_df.loc[l, 'Status'] = 'void'
+        try:
+            update_rows_safely(loans_init, LOAN_COLUMNS, 'Loan_ID', [lid], void_l)
+        except OptimisticLockError:
+            pass
+
+# --- Hàm xử lý thoát giả lập sau khi admin xác nhận ---
+def _finish_exit_impersonation(discard: bool):
+    """Xử lý chung sau khi admin xác nhận thoát giả lập (dù lưu hay không lưu)."""
+    stk = st.session_state.acc_num
+    if discard:
+        snapshot = st.session_state.get('impersonate_snapshot')
+        if snapshot:
+            admin_restore_account_state(stk, snapshot)
+
+    st.session_state.acc_num = st.session_state.real_acc_num
+    st.session_state.acc_name = st.session_state.real_acc_name
+    st.session_state.power_level = st.session_state.real_power_level
+    st.session_state.impersonating = False
+    for k in ('real_acc_num', 'real_acc_name', 'real_power_level', 'impersonate_snapshot'):
+        if k in st.session_state:
+            del st.session_state[k]
+    st.switch_page('pages/admin_power.py')
+
+# --- Dialog xác nhận thoát giả lập ---
+@st.dialog('**:yellow[Xác Nhận / Confirm]**', width='medium', dismissible=False)
+def exit_impersonation_confirm_dialog():
+    text = st.session_state.text
+    st.markdown(
+        f"<h1 style='text-align: center; color: #ff9f43; margin-top:0;'>"
+        f"⚠️ {text['admin_impersonate_exit_confirm_title'].upper()} ⚠️</h3>",
+        unsafe_allow_html=True
+    )
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
+    st.warning(text['admin_impersonate_exit_confirm_text'])
+    st.markdown('<div class="dialog-divider"></div>', unsafe_allow_html=True)
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button(f'**:green[{text["admin_impersonate_exit_save"]}]**', key='btn_imp_exit_save'):
+            _finish_exit_impersonation(discard=False)
+    with c2:
+        if st.button(f'**:red[{text["admin_impersonate_exit_discard"]}]**', key='btn_imp_exit_discard'):
+            _finish_exit_impersonation(discard=True)
