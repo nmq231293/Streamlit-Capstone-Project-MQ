@@ -24,7 +24,7 @@ text = st.session_state.text
 pl = st.session_state.power_level  # 1=viewer, 2=moderator, 3=superadmin
 
 st.header(text["admin_power_title"].upper(), anchor=False)
-st.caption(f"Quyền hiện tại: **{POWER_LEVEL_LABELS.get(pl, 'Unknown')}** (Level {pl})")
+st.caption(f"{text['admin_current_power_level'].format(POWER_LEVEL_LABELS.get(pl, 'Unknown'))} (Level {pl})")
 
 # Tabs chính
 tab_overview, tab_users, tab_tx = st.tabs([
@@ -126,7 +126,7 @@ with tab_overview:
         fig_line = px.line(
             timeline_df, x='Date', y='Count',
             color_discrete_sequence=['#9b5de5'],
-            labels={'Date': 'Ngày', 'Count': 'Số giao dịch'}
+            labels={'Date': text['admin_chart_tx_timeline'], 'Count': text['admin_chart_tx_count']}
         )
         fig_line.update_traces(
             line_color='#9b5de5', fill='tozeroy',
@@ -154,12 +154,12 @@ with tab_overview:
         al1, al2 = st.columns(2)
         with al1:
             if not locked_df.empty:
-                st.error(f"🔒 Tài khoản bị khóa ({len(locked_df)})")
+                st.error(f"🔒 {text['admin_locked_accounts']} ({len(locked_df)})")
                 for _, r in locked_df.iterrows():
                     st.caption(f"· `{r['ID']}` — {r['Name']}")
         with al2:
             if not overdue_df.empty:
-                st.warning(f"⚠️ Nợ quá hạn ({len(overdue_df)})")
+                st.warning(f"⚠️ {text['admin_overdue_accounts']} ({len(overdue_df)})")
                 for _, r in overdue_df.iterrows():
                     st.caption(f"· `{r['ID']}` — {r['Name']} — {format(int(r['Total_Loans']), ',')} VNĐ")
 
@@ -178,7 +178,7 @@ with tab_users:
         user_df = user_df[mask]
 
     if user_df.empty:
-        st.info("Không tìm thấy người dùng nào.")
+        st.info(f"{text['admin_no_users_found']}")
     else:
         for _, row in user_df.iterrows():
             target_id = row['ID']
@@ -196,9 +196,9 @@ with tab_users:
                     icon = "🔒" if is_locked else ("⚠️" if has_overdue else "✅")
                     st.write(f"{icon} **{row['Name']}** — `{target_id}`")
                     pl_label = POWER_LEVEL_LABELS.get(target_pl, str(target_pl))
-                    st.caption(f"Quyền: {pl_label} (Level {target_pl})")
+                    st.caption(f"{text['admin_short_power_level'].format(pl_label)}")
                     if is_self:
-                        st.caption("_(tài khoản của bạn)_")
+                        st.caption(f"_({text['admin_current_account']})_")
 
                 with uc2:
                     st.write(f":green[**{format(int(row['Balance']), ',')} VNĐ**]")
@@ -249,20 +249,20 @@ with tab_users:
                                     text['admin_balance_adjust_label'],
                                     step=100000, format='%d', key=f"adj_val_{target_id}"
                                 )
-                                pass_adj = st.text_input("Mật khẩu xác nhận", type='password',
+                                pass_adj = st.text_input(f"{text['admin_balance_adjust_label_password_confirm']}", type='password',
                                                         max_chars=24, key=f"adj_pass_{target_id}")
                                 ca, cb = st.columns(2)
                                 with ca:
                                     if st.form_submit_button(f"**:green[{text['common_confirm']} ✓]**"):
                                         if pass_adj == '' or login_check(st.session_state.acc_num, pass_adj) != 2:
-                                            st.error("Sai mật khẩu")
+                                            st.error(f"{text['admin_balance_adjust_label_wrong_password']}")
                                         else:
                                             try:
                                                 admin_adjust_balance(target_id, int(adj_amount))
                                                 del st.session_state[expand_adj]
                                                 st.rerun()
                                             except ValueError:
-                                                st.error("Số dư không thể âm")
+                                                st.error(f"{text['admin_balance_adjust_label_negative_balance']}")
                                 with cb:
                                     if st.form_submit_button(f"**:red[{text['common_cancel']}]**"):
                                         del st.session_state[expand_adj]
@@ -280,7 +280,7 @@ with tab_users:
                             # Chỉ có thể gán quyền thấp hơn quyền của chính mình
                             allowed_levels = [i for i in range(3) if i != target_pl]
                             new_pl_val = st.selectbox(
-                                "Quyền mới",
+                                f"{text['admin_new_power_level']}",
                                 options=allowed_levels,
                                 format_func=lambda x: POWER_LEVEL_LABELS.get(x, str(x)),
                                 key=f"pl_sel_{target_id}"
@@ -309,7 +309,7 @@ with tab_users:
                             st.warning(text['admin_confirm_delete'].format(target_id))
                             dc1, dc2 = st.columns(2)
                             with dc1:
-                                if st.button(f"**:red[✓ Xóa]**", key=f"del_cfm_{target_id}"):
+                                if st.button(f"**:red[{text['admin_action_delete']}]**", key=f"del_cfm_{target_id}"):
                                     admin_soft_delete_account(target_id)
                                     del st.session_state[del_key]
                                     st.rerun()
@@ -328,7 +328,7 @@ with tab_tx:
     recent_tx = admin_get_recent_transactions(50)
 
     if recent_tx.empty:
-        st.info("Chưa có giao dịch nào trong hệ thống.")
+        st.info(f"{text['admin_no_tx_data']}")
     else:
         type_filter = st.selectbox(
             text['history_filter_type'],
