@@ -393,7 +393,20 @@ DICTIONARY = {
         'admin_impersonate_exit_confirm_text': 'Bạn có muốn lưu lại những thay đổi đã thực hiện trong lúc giả lập tài khoản này không? Nếu chọn "Không lưu", số dư/sổ tiết kiệm/khoản vay của tài khoản này sẽ được khôi phục về đúng trạng thái trước khi giả lập.',
         'admin_impersonate_exit_save': 'Lưu thay đổi',
         'admin_impersonate_exit_discard': 'Không lưu (hoàn tác)',
-
+        'admin_current_power_level': 'Quyền hiện tại: {}',
+        'admin_short_power_level': 'Quyền: {}',
+        'admin_chart_tx_timeline': 'ngày',
+        'admin_chart_tx_count': 'số giao dịch',
+        'admin_locked_accounts': 'Tài khoản bị khóa',
+        'admin_overdue_accounts': 'Tài khoản có nợ quá hạn',
+        'admin_no_users_found': 'Không tìm thấy người dùng nào',
+        'admin_current_account': 'Tài khoản của bạn',
+        'admin_balance_adjust_label_password_confirm': 'Mật khẩu xác nhận',
+        'admin_balance_adjust_label_wrong_password': 'Sai mật khẩu',
+        'admin_balance_adjust_label_negative_balance': 'Số dư không thể âm',
+        'admin_new_power_level': 'Quyền mới',
+        'admin_action_delete': 'Xóa',
+        
         # --- SYSTEM PROMPT CHATBOT VI ---
         'system_prompt': '''        
             Bạn là một trợ lý ảo thông minh được tích hợp trong ứng dụng "NGÂN HÀNG REYNOLD".
@@ -806,6 +819,19 @@ DICTIONARY = {
         'admin_impersonate_exit_confirm_text': 'Do you want to save the changes made while impersonating this account? If you choose "Discard", this account\'s balance/savings/loans will be restored to their exact state before impersonation began.',
         'admin_impersonate_exit_save': 'Save changes',
         'admin_impersonate_exit_discard': 'Discard (undo)',
+        'admin_current_power_level': 'Current role: {}',
+        'admin_short_power_level': 'Role: {}',
+        'admin_chart_tx_timeline': 'day',
+        'admin_chart_tx_count': 'transactions',
+        'admin_locked_accounts': 'Locked Accounts',
+        'admin_overdue_accounts': 'Accounts with Overdue Loans',
+        'admin_no_users_found': 'No users found',
+        'admin_current_account': 'Your account',
+        'admin_balance_adjust_label_password_confirm': 'Confirmation password',
+        'admin_balance_adjust_label_wrong_password': 'Incorrect password',
+        'admin_balance_adjust_label_negative_balance': 'Balance cannot be negative',
+        'admin_new_power_level': 'New role',
+        'admin_action_delete': 'Delete',
         
         # --- SYSTEM PROMPT CHATBOT EN ---
         'system_prompt': '''
