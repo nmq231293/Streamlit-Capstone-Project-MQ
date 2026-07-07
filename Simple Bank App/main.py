@@ -59,11 +59,6 @@ if st.session_state.get('impersonating'):
         if st.button(f"🚪 {st.session_state.text['admin_impersonate_exit']}",
                     key='exit_impersonate'):
             exit_impersonation_confirm_dialog()
-            # Dọn các key tạm
-            for k in ('real_acc_num', 'real_acc_name', 'real_power_level'):
-                if k in st.session_state:
-                    del st.session_state[k]
-            st.switch_page('pages/admin_power.py')
 
 
 # Gọi chức năng chatbot
