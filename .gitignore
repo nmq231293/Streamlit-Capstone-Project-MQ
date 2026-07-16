@@ -2,6 +2,7 @@
 Simple Bank App/.streamlit/secrets.toml
 test/
 archived_data/
+test_connection.py
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
